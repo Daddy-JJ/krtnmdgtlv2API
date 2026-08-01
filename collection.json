@@ -1,0 +1,2538 @@
+{
+  "info": {
+    "name": "KartuNamaDigital API - krtnmdgtlv2",
+    "description": "CRUD collection untuk semua tabel database krtnmdgtlv2. Sesuaikan body agar memenuhi foreign key dan unique constraint.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "id",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"rahasia123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"rahasia123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "activity_logs",
+      "item": [
+        {
+          "name": "List activity_logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/activity_logs?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activity_logs?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get activity_logs by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/activity_logs/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activity_logs",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create activity_logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activity_logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activity_logs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": null,\n  \"card_id\": null,\n  \"event\": \"contoh\",\n  \"actor_ip_hash\": null,\n  \"request_id\": null,\n  \"metadata_text\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update activity_logs",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/activity_logs/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activity_logs",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": null,\n  \"card_id\": null,\n  \"event\": \"contoh\",\n  \"actor_ip_hash\": null,\n  \"request_id\": null,\n  \"metadata_text\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete activity_logs",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/activity_logs/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activity_logs",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "auth_rate_limits",
+      "item": [
+        {
+          "name": "List auth_rate_limits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth_rate_limits?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth_rate_limits?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get auth_rate_limits by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth_rate_limits/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth_rate_limits",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create auth_rate_limits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth_rate_limits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth_rate_limits"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bucket_hash\": \"contoh\",\n  \"action\": \"contoh\",\n  \"hits\": 1,\n  \"window_started_at\": \"2026-07-31 13:31:51\",\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update auth_rate_limits",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth_rate_limits/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth_rate_limits",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bucket_hash\": \"contoh\",\n  \"action\": \"contoh\",\n  \"hits\": 1,\n  \"window_started_at\": \"2026-07-31 13:31:51\",\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete auth_rate_limits",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth_rate_limits/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth_rate_limits",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cards",
+      "item": [
+        {
+          "name": "List cards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cards?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cards?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get cards by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cards/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cards",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create cards",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cards"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": null,\n  \"slug\": \"contoh\",\n  \"slug_kind\": \"contoh\",\n  \"plan_code\": \"contoh\",\n  \"theme_id\": 1,\n  \"locale\": \"contoh\",\n  \"logo_path\": null,\n  \"status\": \"contoh\",\n  \"published_at\": null,\n  \"deleted_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update cards",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cards/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cards",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": null,\n  \"slug\": \"contoh\",\n  \"slug_kind\": \"contoh\",\n  \"plan_code\": \"contoh\",\n  \"theme_id\": 1,\n  \"locale\": \"contoh\",\n  \"logo_path\": null,\n  \"status\": \"contoh\",\n  \"published_at\": null,\n  \"deleted_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete cards",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cards/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cards",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "card_contacts",
+      "item": [
+        {
+          "name": "List card_contacts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/card_contacts?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_contacts?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get card_contacts by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/card_contacts/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_contacts",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create card_contacts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/card_contacts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_contacts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": 1,\n  \"full_name\": \"contoh\",\n  \"job_title\": \"contoh\",\n  \"organization\": \"contoh\",\n  \"office_phone\": \"contoh\",\n  \"mobile_phone\": \"contoh\",\n  \"email\": \"contoh\",\n  \"website_url\": \"contoh\",\n  \"address_text\": \"Contoh data\",\n  \"maps_url\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update card_contacts",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/card_contacts/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_contacts",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": 1,\n  \"full_name\": \"contoh\",\n  \"job_title\": \"contoh\",\n  \"organization\": \"contoh\",\n  \"office_phone\": \"contoh\",\n  \"mobile_phone\": \"contoh\",\n  \"email\": \"contoh\",\n  \"website_url\": \"contoh\",\n  \"address_text\": \"Contoh data\",\n  \"maps_url\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete card_contacts",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/card_contacts/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_contacts",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "card_social_links",
+      "item": [
+        {
+          "name": "List card_social_links",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/card_social_links?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_social_links?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get card_social_links by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/card_social_links/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_social_links",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create card_social_links",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/card_social_links",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_social_links"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": 1,\n  \"platform\": \"contoh\",\n  \"url\": \"contoh\",\n  \"sort_order\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update card_social_links",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/card_social_links/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_social_links",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": 1,\n  \"platform\": \"contoh\",\n  \"url\": \"contoh\",\n  \"sort_order\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete card_social_links",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/card_social_links/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "card_social_links",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "catalog_items",
+      "item": [
+        {
+          "name": "List catalog_items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog_items?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "catalog_items?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get catalog_items by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog_items/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "catalog_items",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create catalog_items",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/catalog_items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "catalog_items"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"card_id\": 1,\n  \"title\": \"contoh\",\n  \"description\": null,\n  \"image_path\": null,\n  \"target_url\": null,\n  \"sort_order\": 1,\n  \"is_published\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update catalog_items",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/catalog_items/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "catalog_items",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"card_id\": 1,\n  \"title\": \"contoh\",\n  \"description\": null,\n  \"image_path\": null,\n  \"target_url\": null,\n  \"sort_order\": 1,\n  \"is_published\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete catalog_items",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/catalog_items/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "catalog_items",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "email_otps",
+      "item": [
+        {
+          "name": "List email_otps",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/email_otps?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "email_otps?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get email_otps by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/email_otps/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "email_otps",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create email_otps",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/email_otps",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "email_otps"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": null,\n  \"destination_email\": \"contoh\",\n  \"purpose\": \"contoh\",\n  \"code_hash\": \"contoh\",\n  \"attempts\": 1,\n  \"max_attempts\": 1,\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"last_sent_at\": \"2026-07-31 13:31:51\",\n  \"consumed_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update email_otps",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/email_otps/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "email_otps",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": null,\n  \"destination_email\": \"contoh\",\n  \"purpose\": \"contoh\",\n  \"code_hash\": \"contoh\",\n  \"attempts\": 1,\n  \"max_attempts\": 1,\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"last_sent_at\": \"2026-07-31 13:31:51\",\n  \"consumed_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete email_otps",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/email_otps/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "email_otps",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mail_delivery_logs",
+      "item": [
+        {
+          "name": "List mail_delivery_logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mail_delivery_logs?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_delivery_logs?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get mail_delivery_logs by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mail_delivery_logs/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_delivery_logs",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create mail_delivery_logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mail_delivery_logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_delivery_logs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outbox_id\": null,\n  \"message_id\": null,\n  \"transport\": \"contoh\",\n  \"recipient_masked\": \"contoh\",\n  \"status\": \"contoh\",\n  \"response_code\": null,\n  \"response_message\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update mail_delivery_logs",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mail_delivery_logs/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_delivery_logs",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outbox_id\": null,\n  \"message_id\": null,\n  \"transport\": \"contoh\",\n  \"recipient_masked\": \"contoh\",\n  \"status\": \"contoh\",\n  \"response_code\": null,\n  \"response_message\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete mail_delivery_logs",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mail_delivery_logs/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_delivery_logs",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mail_outbox",
+      "item": [
+        {
+          "name": "List mail_outbox",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mail_outbox?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_outbox?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get mail_outbox by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mail_outbox/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_outbox",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create mail_outbox",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mail_outbox",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_outbox"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": null,\n  \"template_key\": \"contoh\",\n  \"recipient_email\": \"contoh\",\n  \"subject\": \"contoh\",\n  \"payload_text\": \"Contoh data\",\n  \"priority\": 1,\n  \"status\": \"contoh\",\n  \"attempts\": 1,\n  \"max_attempts\": 1,\n  \"available_at\": \"2026-07-31 13:31:51\",\n  \"locked_at\": null,\n  \"sent_at\": null,\n  \"failed_at\": null,\n  \"last_error_code\": null,\n  \"last_error_message\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update mail_outbox",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mail_outbox/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_outbox",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": null,\n  \"template_key\": \"contoh\",\n  \"recipient_email\": \"contoh\",\n  \"subject\": \"contoh\",\n  \"payload_text\": \"Contoh data\",\n  \"priority\": 1,\n  \"status\": \"contoh\",\n  \"attempts\": 1,\n  \"max_attempts\": 1,\n  \"available_at\": \"2026-07-31 13:31:51\",\n  \"locked_at\": null,\n  \"sent_at\": null,\n  \"failed_at\": null,\n  \"last_error_code\": null,\n  \"last_error_message\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete mail_outbox",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/mail_outbox/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "mail_outbox",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "password_reset_tokens",
+      "item": [
+        {
+          "name": "List password_reset_tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/password_reset_tokens?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "password_reset_tokens?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get password_reset_tokens by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/password_reset_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "password_reset_tokens",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create password_reset_tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/password_reset_tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "password_reset_tokens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"token_hash\": \"contoh\",\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"used_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update password_reset_tokens",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/password_reset_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "password_reset_tokens",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"token_hash\": \"contoh\",\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"used_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete password_reset_tokens",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/password_reset_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "password_reset_tokens",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments",
+      "item": [
+        {
+          "name": "List payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payments?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payments by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payments/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create payments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"subscription_id\": null,\n  \"user_id\": 1,\n  \"gateway\": \"contoh\",\n  \"merchant_order_id\": \"contoh\",\n  \"gateway_transaction_id\": null,\n  \"target_plan_code\": \"contoh\",\n  \"plan_name_snapshot\": \"contoh\",\n  \"duration_days_snapshot\": 1,\n  \"gateway_status\": null,\n  \"fraud_status\": null,\n  \"snap_redirect_url\": null,\n  \"amount\": 1,\n  \"currency\": \"contoh\",\n  \"status\": \"contoh\",\n  \"paid_at\": null,\n  \"expires_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update payments",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"subscription_id\": null,\n  \"user_id\": 1,\n  \"gateway\": \"contoh\",\n  \"merchant_order_id\": \"contoh\",\n  \"gateway_transaction_id\": null,\n  \"target_plan_code\": \"contoh\",\n  \"plan_name_snapshot\": \"contoh\",\n  \"duration_days_snapshot\": 1,\n  \"gateway_status\": null,\n  \"fraud_status\": null,\n  \"snap_redirect_url\": null,\n  \"amount\": 1,\n  \"currency\": \"contoh\",\n  \"status\": \"contoh\",\n  \"paid_at\": null,\n  \"expires_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete payments",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payments/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "payment_events",
+      "item": [
+        {
+          "name": "List payment_events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment_events?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment_events?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payment_events by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment_events/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment_events",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create payment_events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment_events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment_events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": null,\n  \"gateway_event_key\": \"contoh\",\n  \"payload_hash\": \"contoh\",\n  \"event_type\": null,\n  \"received_at\": \"2026-07-31 13:31:51\",\n  \"processed_at\": null,\n  \"processing_status\": \"contoh\",\n  \"error_message\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update payment_events",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment_events/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment_events",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": null,\n  \"gateway_event_key\": \"contoh\",\n  \"payload_hash\": \"contoh\",\n  \"event_type\": null,\n  \"received_at\": \"2026-07-31 13:31:51\",\n  \"processed_at\": null,\n  \"processing_status\": \"contoh\",\n  \"error_message\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete payment_events",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment_events/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment_events",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "plans",
+      "item": [
+        {
+          "name": "List plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plans?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plans?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get plans by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plans",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create plans",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/plans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plans"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"contoh\",\n  \"name\": \"contoh\",\n  \"price_amount\": 1,\n  \"currency\": \"contoh\",\n  \"duration_days\": 1,\n  \"is_active\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update plans",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plans",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"contoh\",\n  \"name\": \"contoh\",\n  \"price_amount\": 1,\n  \"currency\": \"contoh\",\n  \"duration_days\": 1,\n  \"is_active\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete plans",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plans/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plans",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "plan_features",
+      "item": [
+        {
+          "name": "List plan_features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan_features?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_features?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get plan_features by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan_features/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_features",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create plan_features",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/plan_features",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_features"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": 1,\n  \"feature_key\": \"contoh\",\n  \"value_type\": \"contoh\",\n  \"value_bool\": null,\n  \"value_int\": null,\n  \"value_text\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update plan_features",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/plan_features/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_features",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": 1,\n  \"feature_key\": \"contoh\",\n  \"value_type\": \"contoh\",\n  \"value_bool\": null,\n  \"value_int\": null,\n  \"value_text\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete plan_features",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan_features/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_features",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "plan_theme_access",
+      "item": [
+        {
+          "name": "List plan_theme_access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan_theme_access?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_theme_access?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get plan_theme_access by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan_theme_access/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_theme_access",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create plan_theme_access",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/plan_theme_access",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_theme_access"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": 1,\n  \"theme_id\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update plan_theme_access",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/plan_theme_access/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_theme_access",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": 1,\n  \"theme_id\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete plan_theme_access",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/plan_theme_access/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "plan_theme_access",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "refresh_tokens",
+      "item": [
+        {
+          "name": "List refresh_tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/refresh_tokens?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "refresh_tokens?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get refresh_tokens by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/refresh_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "refresh_tokens",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create refresh_tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/refresh_tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "refresh_tokens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"token_hash\": \"contoh\",\n  \"family_id\": \"contoh\",\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"used_at\": null,\n  \"revoked_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update refresh_tokens",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/refresh_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "refresh_tokens",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"token_hash\": \"contoh\",\n  \"family_id\": \"contoh\",\n  \"expires_at\": \"2026-07-31 13:31:51\",\n  \"used_at\": null,\n  \"revoked_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete refresh_tokens",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/refresh_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "refresh_tokens",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "starter_manage_tokens",
+      "item": [
+        {
+          "name": "List starter_manage_tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/starter_manage_tokens?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter_manage_tokens?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get starter_manage_tokens by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/starter_manage_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter_manage_tokens",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create starter_manage_tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/starter_manage_tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter_manage_tokens"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": 1,\n  \"token_hash\": \"contoh\",\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"last_used_at\": null,\n  \"revoked_at\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update starter_manage_tokens",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/starter_manage_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter_manage_tokens",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_id\": 1,\n  \"token_hash\": \"contoh\",\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"last_used_at\": null,\n  \"revoked_at\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete starter_manage_tokens",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/starter_manage_tokens/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter_manage_tokens",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "item": [
+        {
+          "name": "List subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get subscriptions by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create subscriptions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": 1,\n  \"plan_id\": 1,\n  \"status\": \"contoh\",\n  \"starts_at\": null,\n  \"ends_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update subscriptions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": 1,\n  \"plan_id\": 1,\n  \"status\": \"contoh\",\n  \"starts_at\": null,\n  \"ends_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete subscriptions",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "themes",
+      "item": [
+        {
+          "name": "List themes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/themes?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "themes?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get themes by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/themes/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "themes",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create themes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/themes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "themes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"contoh\",\n  \"name\": \"contoh\",\n  \"orientation\": \"contoh\",\n  \"preview_path\": \"contoh\",\n  \"template_path\": \"contoh\",\n  \"minimum_plan_code\": \"contoh\",\n  \"display_order\": 1,\n  \"is_active\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update themes",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/themes/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "themes",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"contoh\",\n  \"name\": \"contoh\",\n  \"orientation\": \"contoh\",\n  \"preview_path\": \"contoh\",\n  \"template_path\": \"contoh\",\n  \"minimum_plan_code\": \"contoh\",\n  \"display_order\": 1,\n  \"is_active\": 1,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete themes",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/themes/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "themes",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get users by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"email\": \"contoh\",\n  \"password_hash\": \"contoh\",\n  \"role\": \"contoh\",\n  \"status\": \"contoh\",\n  \"email_verified_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update users",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"email\": \"contoh\",\n  \"password_hash\": \"contoh\",\n  \"role\": \"contoh\",\n  \"status\": \"contoh\",\n  \"email_verified_at\": null,\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete users",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "user_feedback",
+      "item": [
+        {
+          "name": "List user_feedback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user_feedback?page=1&limit=20&sort=id&order=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user_feedback?page=1&limit=20&sort=id&order=desc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get user_feedback by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user_feedback/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user_feedback",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create user_feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user_feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user_feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": 1,\n  \"message\": \"contoh\",\n  \"status\": \"contoh\",\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update user_feedback",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user_feedback/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user_feedback",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"public_id\": \"contoh\",\n  \"user_id\": 1,\n  \"message\": \"contoh\",\n  \"status\": \"contoh\",\n  \"created_at\": \"2026-07-31 13:31:51\",\n  \"updated_at\": \"2026-07-31 13:31:51\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete user_feedback",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/user_feedback/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user_feedback",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

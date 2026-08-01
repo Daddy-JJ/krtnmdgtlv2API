@@ -1,0 +1,24 @@
+{
+  "name": "kartunamadigital-api",
+  "version": "1.0.0",
+  "description": "REST CRUD API untuk database krtnmdgtlv2",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "generate:collection": "node scripts/generate-collection.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.11.5"
+  }
+}
