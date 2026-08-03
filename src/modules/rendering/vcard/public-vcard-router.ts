@@ -1,0 +1,1 @@
+import{Router}from'express';import type{PublicVCardController}from'./public-vcard-controller.ts';export function createPublicVCardRouter(controller:PublicVCardController):Router{const router=Router();router.get('/:slug/vcard',controller.download);return router;}

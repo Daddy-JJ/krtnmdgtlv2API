@@ -1,0 +1,5 @@
+import { Router } from 'express';
+import type { CardController } from '../controllers/card-controller.ts';
+import type { CardCustomizationController } from '../controllers/card-customization-controller.ts';
+export function createCardRouter(controller: CardController, customization?:CardCustomizationController): Router { const router = Router(); router.get('/', controller.list); router.post('/', controller.create); if(customization){router.get('/slug-suggestion',customization.suggestion);router.get('/slug-availability',customization.availability);router.patch('/:publicId/slug',customization.updateSlug);router.get('/:publicId/themes',customization.cardThemes);router.patch('/:publicId/theme',customization.updateTheme);}router.post('/:publicId/publish',controller.publish);router.get('/:publicId', controller.get); router.put('/:publicId', controller.update); router.delete('/:publicId', controller.delete); return router; }
+export function createPublicCardRouter(controller:CardController):Router{const router=Router();router.get('/:slug',controller.publicCard);return router;}

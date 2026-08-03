@@ -1,24 +1,50 @@
 {
-  "name": "kartunamadigital-api",
-  "version": "1.0.0",
-  "description": "REST CRUD API untuk database krtnmdgtlv2",
-  "main": "src/server.js",
-  "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "generate:collection": "node scripts/generate-collection.js",
-    "test": "node --test"
-  },
+  "name": "@kartunamadigital/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SOT-driven Node.js and Express modular monolith for KartuNamaDigital.id",
+  "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=22.18 <23"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/**/*.test.ts",
+    "test:db": "RUN_DB_TESTS=true node --test tests/Integration/database.test.ts",
+    "migrate": "node scripts/migrate.ts up",
+    "migrate:status": "node scripts/migrate.ts status",
+    "migrate:rollback": "node scripts/migrate.ts down",
+    "seed": "node scripts/seed.ts",
+    "keys:generate": "node scripts/generate-jwt-keys.ts",
+    "env:local:init": "node scripts/initialize-local-environment.ts",
+    "hosting:preflight": "node scripts/hosting-preflight.ts",
+    "mail:work": "node scripts/mail-worker.ts",
+    "resume:work": "node scripts/resume-worker.ts",
+    "mail:verify": "node scripts/smtp-verify.ts",
+    "qa": "npm run typecheck && npm test && npm audit --audit-level=high"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.2",
-    "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.11.5"
+    "@types/nodemailer": "8.0.1",
+    "argon2": "0.45.1",
+    "express": "5.2.1",
+    "helmet": "8.3.0",
+    "midtrans-client": "1.4.3",
+    "multer": "2.2.0",
+    "mysql2": "3.23.0",
+    "nodemailer": "9.0.3",
+    "qrcode": "1.5.4",
+    "sharp": "0.35.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/multer": "2.2.0",
+    "@types/node": "24.13.3",
+    "@types/pngjs": "6.0.5",
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0",
+    "typescript": "5.9.3"
   }
 }

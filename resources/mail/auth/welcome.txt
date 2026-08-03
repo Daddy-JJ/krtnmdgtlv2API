@@ -1,0 +1,1 @@
+Halo {{display_name}},\n\nEmail berhasil diverifikasi. Dashboard: {{dashboard_url}}

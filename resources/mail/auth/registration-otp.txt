@@ -1,0 +1,1 @@
+Halo {{display_name}},\n\nKode verifikasi: {{otp_code}}\nBerlaku {{expiry_minutes}} menit dan satu kali pakai.

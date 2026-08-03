@@ -1,0 +1,2 @@
+import QRCode from'qrcode';import type{QrCodeRendererPort,QrRenderOptions}from'./qr-code-renderer-port.ts';
+export class QrcodeRenderer implements QrCodeRendererPort{async renderPng(payload:string,options:QrRenderOptions):Promise<Buffer>{return QRCode.toBuffer(payload,{type:'png',width:options.width,errorCorrectionLevel:options.errorCorrectionLevel,margin:options.margin,color:{dark:options.dark,light:options.light}});}}

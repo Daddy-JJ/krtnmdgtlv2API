@@ -1,0 +1,1 @@
+import{Router}from'express';import type{PublicQrController}from'./public-qr-controller.ts';export function createPublicQrRouter(controller:PublicQrController):Router{const router=Router();router.get('/:slug/qr',controller.get);return router;}

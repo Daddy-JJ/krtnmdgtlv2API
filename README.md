@@ -1,96 +1,16 @@
-# KartuNamaDigital REST API
+# Backend
 
-REST API Node.js + Express untuk seluruh tabel pada dump `krtnmdgtlv2.sql`.
+The backend uses Node.js 22.18+, Express 5, strict TypeScript, and MySQL2. Source files run directly on Node 22 with erasable TypeScript syntax; `tsc --noEmit` remains the required static type gate.
 
-## Database
+## Local setup
 
-Nama database: **`krtnmdgtlv2`**  
-Jumlah tabel: **21**
+1. Copy root `.env.example` to root `.env` and set database values.
+2. Run `npm install` inside `backend/`.
+3. Run `npm run keys:generate` once, then configure untracked `CSRF_HMAC_KEY`, `OTP_HMAC_KEY`, and SMTP credentials.
+4. Run `npm run migrate` and `npm run seed`.
+5. Run `npm start`; the REST base path is `/api/v1`.
+6. Run `npm run qa`. Set `RUN_DB_TESTS=true` for the database integration suite.
 
-`activity_logs`, `auth_rate_limits`, `cards`, `card_contacts`, `card_social_links`,
-`catalog_items`, `email_otps`, `mail_delivery_logs`, `mail_outbox`,
-`password_reset_tokens`, `payments`, `payment_events`, `plans`, `plan_features`,
-`plan_theme_access`, `refresh_tokens`, `starter_manage_tokens`, `subscriptions`,
-`themes`, `users`, dan `user_feedback`.
+For cPanel Passenger, register `app.js` with a Node.js runtime in the locked `>=22.18 <23` range.
 
-## Instalasi
-
-1. Import database:
-
-   ```bash
-   mysql -u root -p < krtnmdgtlv2.sql
-   ```
-
-2. Instal dependency dan buat konfigurasi:
-
-   ```bash
-   npm install
-   cp .env.example .env
-   ```
-
-3. Sesuaikan kredensial MySQL di `.env`, lalu jalankan:
-
-   ```bash
-   npm start
-   ```
-
-API tersedia pada `http://localhost:3000/api/v1`.
-
-Pastikan `JWT_SECRET` pada `.env` diganti dengan nilai acak minimal 32 karakter sebelum menjalankan API.
-
-## Login dan register
-
-Kedua endpoint hanya menerima field `email` dan `password`. Password minimal 8 dan maksimal 72 karakter.
-
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "rahasia123"
-}
-```
-
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "rahasia123"
-}
-```
-
-Respons sukses berisi data user tanpa `password_hash` dan JWT `accessToken` untuk dipakai sebagai `Authorization: Bearer <token>`.
-
-## Endpoint CRUD
-
-Ganti `:table` dengan salah satu nama tabel di atas dan `:id` dengan primary key.
-
-| Method | Endpoint | Fungsi |
-|---|---|---|
-| GET | `/api/v1/health` | Status koneksi dan daftar tabel |
-| GET | `/api/v1/:table` | Daftar data |
-| GET | `/api/v1/:table/:id` | Detail data |
-| POST | `/api/v1/:table` | Tambah data |
-| PUT/PATCH | `/api/v1/:table/:id` | Ubah data |
-| DELETE | `/api/v1/:table/:id` | Hapus permanen data |
-
-List mendukung `page`, `limit` (maksimum 100), `sort`, `order=asc|desc`, dan filter exact-match, misalnya:
-
-```text
-GET /api/v1/cards?page=1&limit=10&sort=created_at&order=desc&filter[status]=published
-```
-
-Tabel dan kolom divalidasi dari `INFORMATION_SCHEMA`, sehingga identifier dari request tidak dapat dipakai untuk mengakses tabel di luar database. Aturan foreign key, unique, dan required mengikuti skema SQL.
-
-## Postman
-
-Import `collection.json` ke Postman. Collection berisi lima request CRUD untuk masing-masing dari 21 tabel dan satu health check. Body adalah contoh berdasarkan skema dan mungkin perlu disesuaikan dengan foreign key yang tersedia.
-
-Regenerasi collection setelah skema berubah:
-
-```bash
-npm run generate:collection
-```
+Phase 1M was accepted on 2026-07-18. Auth/Starter, Card, sharing, payment, minimal admin APIs, and `/me` account contract have been implemented through accepted gates. The former PHP/Composer runtime files have been removed; historical implementation evidence remains only in the Phase 1 report and changelog.
