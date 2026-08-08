@@ -26,6 +26,9 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
       (SELECT COUNT(*) FROM users WHERE status='active') activeUsers,
       (SELECT COUNT(*) FROM users WHERE status='suspended') suspendedUsers,
       (SELECT COUNT(*) FROM users WHERE created_at>=UTC_TIMESTAMP()-INTERVAL 30 DAY) newUsers30Days,
+      tierCounts.starterUsers,
+      tierCounts.basicUsers,
+      tierCounts.proUsers,
       (SELECT COUNT(*) FROM subscriptions WHERE status='active' AND ends_at>UTC_TIMESTAMP()) activeSubscriptions,
       (SELECT COUNT(*) FROM subscriptions WHERE status='active' AND ends_at BETWEEN UTC_TIMESTAMP() AND UTC_TIMESTAMP()+INTERVAL 30 DAY) expiringSubscriptions,
       (SELECT COUNT(*) FROM resume_requests WHERE created_at>=CURRENT_DATE()) newResumeRequests,
@@ -44,7 +47,15 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
       (SELECT ROUND(100*SUM(event_type='MET')/NULLIF(SUM(event_type IN ('MET','BREACHED')),0),1) FROM resume_request_sla_events) slaMetRate,
       (SELECT COUNT(*) FROM resume_download_logs) resumeDownloads,
       (SELECT COUNT(*) FROM mail_outbox WHERE status='queued') mailQueue,
-      (SELECT COUNT(*) FROM mail_outbox WHERE status='failed') failedEmail`);
+      (SELECT COUNT(*) FROM mail_outbox WHERE status='failed') failedEmail
+      FROM (
+        SELECT SUM(currentTier=0) starterUsers,SUM(currentTier=1) basicUsers,SUM(currentTier=2) proUsers
+        FROM (
+          SELECT u.id,COALESCE(MAX(CASE WHEN s.status='active' AND s.starts_at<=UTC_TIMESTAMP() AND s.ends_at>UTC_TIMESTAMP() THEN CASE p.code WHEN 'pro' THEN 2 WHEN 'basic' THEN 1 ELSE 0 END END),0) currentTier
+          FROM users u LEFT JOIN subscriptions s ON s.user_id=u.id LEFT JOIN plans p ON p.id=s.plan_id
+          WHERE u.role='member' GROUP BY u.id
+        ) currentMemberships
+      ) tierCounts`);
     return rows[0];
   }
 

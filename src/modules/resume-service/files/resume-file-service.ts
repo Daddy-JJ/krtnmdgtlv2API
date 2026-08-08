@@ -12,7 +12,11 @@ export class ResumeFileService{
     const [rows]=await this.pool.execute<Array<RowDataPacket&{id:number;user_id:number;owner_public_id:string;assigned_public_id:string|null;status:string}>>(`SELECT r.id,r.user_id,u.public_id owner_public_id,s.public_id assigned_public_id,r.status FROM resume_requests r JOIN users u ON u.id=r.user_id LEFT JOIN users s ON s.id=r.assigned_specialist_id WHERE r.public_id=? LIMIT 1`,[requestPublicId]);
     const request=rows[0];if(!request)throw new AppError(404,'RESUME_REQUEST_NOT_FOUND','Resume request was not found.');
     const internal=role==='WORKING_DRAFT'||role==='DELIVERABLE';
-    if(internal){if(request.assigned_public_id!==actor)await this.rbac.assert(actor,'resume.admin');}
+    if(internal){
+      const permissions=await this.rbac.permissions(actor);
+      if(request.assigned_public_id===actor){if(!permissions.has('resume.work'))throw new AppError(403,'PERMISSION_REQUIRED','Resume work permission is required.');}
+      else if(!permissions.has('resume.admin'))throw new AppError(403,'RESUME_REQUEST_NOT_ASSIGNED','Request is not assigned to this specialist.');
+    }
     else if(request.owner_public_id!==actor)throw new AppError(404,'RESUME_REQUEST_NOT_FOUND','Resume request was not found.');
     const metadata=validateResumeFile(role,file.originalname,file.buffer);
     const stored=await this.storage.write(request.owner_public_id,requestPublicId,role,file.originalname,file.buffer);
@@ -30,7 +34,7 @@ export class ResumeFileService{
       JOIN resume_deliverables d ON d.request_id=r.id AND d.is_current=1 AND d.state='RELEASED' AND d.revoked_at IS NULL
       JOIN resume_request_files f ON f.id=d.file_id WHERE r.public_id=? LIMIT 1`,[requestPublicId]);
     const row=rows[0];if(!row)throw new AppError(404,'RESUME_REQUEST_NOT_FOUND','Released deliverable was not found.');
-    if(row.owner_public_id!==actor&&row.assigned_public_id!==actor){const permissions=await this.rbac.permissions(actor);if(!permissions.has('resume.admin')&&!permissions.has('resume.quality_review'))throw new AppError(403,'RESUME_DOWNLOAD_FORBIDDEN','Download is not permitted.');}
+    if(row.owner_public_id!==actor){const permissions=await this.rbac.permissions(actor);if((row.assigned_public_id!==actor||!permissions.has('resume.assigned.read'))&&!permissions.has('resume.admin')&&!permissions.has('resume.quality_review'))throw new AppError(403,'RESUME_DOWNLOAD_FORBIDDEN','Download is not permitted.');}
     if(row.deleted_at)throw new AppError(410,'RESUME_FILE_DELETED','Resume file has been deleted.');
     if(!row.retention_expires_at||row.retention_expires_at<=new Date())throw new AppError(410,'RESUME_FILE_EXPIRED','Resume file retention has expired.');
     if(!row.scan_status.startsWith('CLEAN'))throw new AppError(422,'RESUME_FILE_UNSAFE','Resume file has not passed validation.');
@@ -47,7 +51,7 @@ export class ResumeFileService{
     const internal=['WORKING_DRAFT','DELIVERABLE'].includes(row.file_role);
     if(row.owner_public_id!==actor||internal){
       const permissions=await this.rbac.permissions(actor);
-      if(row.assigned_public_id!==actor&&!permissions.has('resume.admin')&&!permissions.has('resume.quality_review'))throw new AppError(403,'RESUME_DOWNLOAD_FORBIDDEN','Download is not permitted.');
+      if((row.assigned_public_id!==actor||!permissions.has('resume.assigned.read'))&&!permissions.has('resume.admin')&&!permissions.has('resume.quality_review'))throw new AppError(403,'RESUME_DOWNLOAD_FORBIDDEN','Download is not permitted.');
     }
     if(!row.scan_status.startsWith('CLEAN'))throw new AppError(422,'RESUME_FILE_UNSAFE','Resume file has not passed validation.');
     return{content:await this.storage.read(row.storage_path),filename:row.original_filename.replace(/[^a-zA-Z0-9._ -]/g,'_'),mime:row.detected_mime};

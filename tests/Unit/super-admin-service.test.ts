@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { resolve } from 'node:path';
 import type { SuperAdminRepository } from '../../src/modules/admin/repositories/super-admin-repository.ts';
 import { SuperAdminService } from '../../src/modules/admin/services/super-admin-service.ts';
 import { AppError } from '../../src/shared/http/errors.ts';
@@ -25,6 +26,14 @@ const rbac = {
   assert: async () => undefined,
 } as unknown as RbacService;
 const service = new SuperAdminService(repository, rbac);
+
+test('Super Admin statistics aggregate current Starter, Basic, and Pro membership server-side',async()=>{
+  const source=await readFile(resolve(import.meta.dirname,'../../src/modules/admin/repositories/mysql-super-admin-repository.ts'),'utf8');
+  for(const key of['starterUsers','basicUsers','proUsers'])assert.match(source,new RegExp(key));
+  assert.match(source,/s\.status='active'/);
+  assert.match(source,/s\.starts_at<=UTC_TIMESTAMP\(\)/);
+  assert.match(source,/s\.ends_at>UTC_TIMESTAMP\(\)/);
+});
 
 test('Super Admin service rejects invalid or irrelevant intervention fields before persistence', async () => {
   writes = 0;

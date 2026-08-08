@@ -22,4 +22,11 @@ test('Operational queue and detail are assignment scoped and omit storage paths'
   assert.match(repository,/WHERE \(\?=1 OR s\.public_id=\?\)/);
   const operational=repository.slice(repository.indexOf('async operationalDetail'));
   assert.doesNotMatch(operational,/storage_path/);
+  for(const field of['whatsappNumber','linkedinUrl','pastedResumeText','pastedJobDescription','additionalAchievements','certifications','userNotes'])assert.match(operational,new RegExp(field));
+});
+
+test('Specialist file access requires both current assignment and active RBAC permission',async()=>{
+  const service=await readFile(resolve(root,'src/modules/resume-service/files/resume-file-service.ts'),'utf8');
+  assert.match(service,/assigned_public_id===actor[\s\S]*permissions\.has\('resume\.work'\)/);
+  assert.match(service,/assigned_public_id!==actor\|\|!permissions\.has\('resume\.assigned\.read'\)/);
 });
