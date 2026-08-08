@@ -5,30 +5,25 @@ import { Rs256AccessTokenService } from '../../src/shared/security/access-token.
 import { CookiePolicy } from '../../src/shared/security/cookie-policy.ts';
 import { CsrfTokenService } from '../../src/shared/security/csrf-token.ts';
 import { OpaqueTokenService } from '../../src/shared/security/opaque-token.ts';
-import { Argon2idPasswordHasher } from '../../src/shared/security/password-hasher.ts';
+import { ScryptPasswordHasher } from '../../src/shared/security/password-hasher.ts';
 
-test('passwords use salted Argon2id hashes and constant-time verification', async () => {
-  const hasher = new Argon2idPasswordHasher();
+test('passwords use versioned salted scrypt hashes and constant-time verification', async () => {
+  const hasher = new ScryptPasswordHasher();
   const first = await hasher.hash('correct horse battery staple');
   const second = await hasher.hash('correct horse battery staple');
 
-  assert.match(first, /^\$argon2id\$v=19\$m=65536,p=1,t=3\$/);
+  assert.match(first, /^\$scrypt\$v=1\$ln=16,r=8,p=1\$[A-Za-z0-9_-]{22}\$[A-Za-z0-9_-]{43}$/);
   assert.notEqual(first, second);
   assert.equal(await hasher.verify('correct horse battery staple', first), true);
   assert.equal(await hasher.verify('wrong password', first), false);
   assert.equal(await hasher.verify('correct horse battery staple', 'malformed'), false);
 });
 
-test('password verification accepts the legacy Node 24 base64url PHC encoding', async () => {
-  const hasher = new Argon2idPasswordHasher();
+test('legacy and parameter-downgraded password hashes fail closed', async () => {
+  const hasher = new ScryptPasswordHasher();
   const current = await hasher.hash('migration-compatible-password');
-  const legacy = current.replace(/\$([^$]+)\$([^$]+)$/, (_whole, salt, hash) => {
-    const encode = (value: string) => Buffer.from(value, 'base64').toString('base64url');
-    return `$${encode(salt)}$${encode(hash)}`;
-  });
-
-  assert.equal(await hasher.verify('migration-compatible-password', legacy), true);
-  assert.equal(await hasher.verify('incorrect-password', legacy), false);
+  assert.equal(await hasher.verify('migration-compatible-password', current.replace('ln=16', 'ln=15')), false);
+  assert.equal(await hasher.verify('migration-compatible-password', '$argon2id$v=19$m=65536,p=1,t=3$legacy$legacy'), false);
 });
 
 test('opaque credentials contain at least 256 bits and persist only SHA-256 hashes', () => {

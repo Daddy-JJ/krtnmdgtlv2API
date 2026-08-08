@@ -17,7 +17,7 @@ import { Rs256AccessTokenService } from '../../src/shared/security/access-token.
 import { CsrfTokenService } from '../../src/shared/security/csrf-token.ts';
 import { OpaqueTokenService } from '../../src/shared/security/opaque-token.ts';
 import { OtpCodeService } from '../../src/shared/security/otp-code.ts';
-import { Argon2idPasswordHasher } from '../../src/shared/security/password-hasher.ts';
+import { ScryptPasswordHasher } from '../../src/shared/security/password-hasher.ts';
 import { MySqlStarterRepository } from '../../src/modules/starter/repositories/mysql-starter-repository.ts';
 import { StarterService } from '../../src/modules/starter/services/starter-service.ts';
 import { StarterSlugGenerator } from '../../src/modules/starter/services/starter-slug-generator.ts';
@@ -113,7 +113,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       sendPasswordReset: async (_email, resetUrl) => { delivered.resetUrl = resetUrl; },
     };
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-    const passwords = new Argon2idPasswordHasher();
+    const passwords = new ScryptPasswordHasher();
     const auth = new AuthService({
       repository: new MySqlAuthRepository(pool),
       rateLimiter: new MySqlRateLimiter(pool),

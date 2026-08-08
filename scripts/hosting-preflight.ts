@@ -1,4 +1,4 @@
-import argon2 from 'argon2';
+import { scrypt } from 'node:crypto';
 import { constants, access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -11,7 +11,7 @@ type Check = Readonly<{
 
 export type HostingPreflightInput = Readonly<{
   nodeVersion: string;
-  argon2idAvailable: boolean;
+  scryptAvailable: boolean;
   environment: NodeJS.ProcessEnv;
   packageEngine: string;
   files: Readonly<{
@@ -61,7 +61,7 @@ export function assessHostingPreflight(input: HostingPreflightInput): HostingPre
   };
 
   add('runtime.node22', supportedNodeVersion(input.nodeVersion), 'Effective application runtime is Node.js >=22.18 and <23.');
-  add('runtime.argon2id', input.argon2idAvailable, 'The Argon2id password adapter is available.');
+  add('runtime.scrypt', input.scryptAvailable, 'The built-in asynchronous scrypt password adapter is available.');
   add('package.engine', input.packageEngine === '>=22.18 <23', 'Package engine matches the locked runtime range.');
   add('file.startup', input.files.startup, 'Passenger startup file app.js is readable.');
   add('file.server', input.files.serverSource, 'Backend server source is readable.');
@@ -129,7 +129,7 @@ export async function collectHostingPreflight(backendRoot = resolve(import.meta.
 
   return assessHostingPreflight({
     nodeVersion: process.version,
-    argon2idAvailable: typeof argon2.hash === 'function' && typeof argon2.verify === 'function',
+    scryptAvailable: typeof scrypt === 'function',
     environment: process.env,
     packageEngine,
     files: { startup, serverSource, jwtPrivateKey, jwtPublicKey },

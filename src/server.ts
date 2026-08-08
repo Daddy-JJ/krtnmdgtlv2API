@@ -55,7 +55,7 @@ import { CookiePolicy } from './shared/security/cookie-policy.ts';
 import { CsrfTokenService } from './shared/security/csrf-token.ts';
 import { OpaqueTokenService } from './shared/security/opaque-token.ts';
 import { OtpCodeService } from './shared/security/otp-code.ts';
-import { Argon2idPasswordHasher } from './shared/security/password-hasher.ts';
+import { ScryptPasswordHasher } from './shared/security/password-hasher.ts';
 import { AuthenticatedActorService } from './shared/security/authenticated-actor.ts';
 import { MySqlPaymentRepository } from './modules/payments/repositories/mysql-payment-repository.ts';
 import { PaymentService } from './modules/payments/services/payment-service.ts';
@@ -91,7 +91,7 @@ const [privateKey, publicKey] = await Promise.all([
   readFile(resolve(backendRoot, environment.JWT_PRIVATE_KEY_PATH), 'utf8'),
   readFile(resolve(backendRoot, environment.JWT_PUBLIC_KEY_PATH), 'utf8'),
 ]);
-const passwords = new Argon2idPasswordHasher();
+const passwords = new ScryptPasswordHasher();
 const opaqueTokens = new OpaqueTokenService();
 const csrfTokens = new CsrfTokenService(environment.CSRF_HMAC_KEY);
 const rateLimiter = new MySqlRateLimiter(pool);

@@ -8,6 +8,7 @@
 - Zod for environment and boundary validation.
 - Nodemailer for authenticated SMTP inside `CpanelSmtpMailer`.
 - TypeScript and project-local Node/Express type definitions for strict typecheck.
+- Human passwords use the asynchronous `node:crypto.scrypt` primitive built into Node.js 22. The versioned format and locked parameters are enforced in the security test suite; no native password-hashing package or build step is required.
 
 Versions are exact in `package.json` and integrity-locked in `package-lock.json`. Run `npm ci` in CI/production and `npm audit --audit-level=high` at every release gate.
 

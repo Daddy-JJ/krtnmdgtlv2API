@@ -4,7 +4,7 @@ import { assessHostingPreflight, type HostingPreflightInput } from '../../script
 
 const validInput: HostingPreflightInput = {
   nodeVersion: 'v22.18.0',
-  argon2idAvailable: true,
+  scryptAvailable: true,
   packageEngine: '>=22.18 <23',
   environment: {
     APP_ENV: 'staging',
@@ -34,7 +34,7 @@ test('hosting preflight fails closed for unsupported Node.js 24, missing control
   const result = assessHostingPreflight({
     ...validInput,
     nodeVersion: 'v24.18.0',
-    argon2idAvailable: false,
+    scryptAvailable: false,
     environment: {
       ...validInput.environment,
       APP_DEBUG: 'true',
