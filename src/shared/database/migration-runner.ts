@@ -69,7 +69,6 @@ export class MigrationRunner {
   }
 
   async status(): Promise<Record<string, boolean>> {
-    await this.#ensureRepository();
     const applied = await this.#appliedMigrations();
     return Object.fromEntries((await this.#files()).map((file) => [file.name, applied.has(file.name)]));
   }

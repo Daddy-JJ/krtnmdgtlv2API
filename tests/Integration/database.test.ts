@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import mysql, { type RowDataPacket } from 'mysql2/promise';
+import type { RowDataPacket } from 'mysql2/promise';
+import { parseEnvironment } from '../../src/config/environment.ts';
 import { MigrationRunner } from '../../src/shared/database/migration-runner.ts';
 import { SeedRunner } from '../../src/shared/database/seed-runner.ts';
+import { createDatabasePool } from '../../src/shared/database/pool.ts';
 import { MySqlAuthRepository } from '../../src/modules/auth/repositories/mysql-auth-repository.ts';
 import { MySqlRateLimiter } from '../../src/modules/auth/repositories/mysql-rate-limiter.ts';
 import { AuthService } from '../../src/modules/auth/services/auth-service.ts';
@@ -36,20 +38,30 @@ import { AdminService } from '../../src/modules/admin/services/admin-service.ts'
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
 
 test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled }, async () => {
-  const pool = mysql.createPool({
-    host: process.env.TEST_DB_HOST ?? '127.0.0.1',
-    port: Number(process.env.TEST_DB_PORT ?? 3306),
-    user: process.env.TEST_DB_USERNAME ?? 'root',
-    password: process.env.TEST_DB_PASSWORD ?? '',
-    database: process.env.TEST_DB_DATABASE ?? 'digital_identity_test',
-    ...(process.env.TEST_DB_SOCKET ? { socketPath: process.env.TEST_DB_SOCKET } : {}),
-  });
+  const pool = createDatabasePool(parseEnvironment({
+    APP_ENV: 'testing',
+    DB_HOST: process.env.TEST_DB_HOST ?? '127.0.0.1',
+    DB_PORT: String(process.env.TEST_DB_PORT ?? 3306),
+    DB_SOCKET: process.env.TEST_DB_SOCKET ?? '',
+    DB_USERNAME: process.env.TEST_DB_USERNAME ?? 'root',
+    DB_PASSWORD: process.env.TEST_DB_PASSWORD ?? '',
+    DB_DATABASE: process.env.TEST_DB_DATABASE ?? 'digital_identity_test',
+    CSRF_HMAC_KEY: '0123456789abcdef0123456789abcdef',
+    OTP_HMAC_KEY: 'abcdef0123456789abcdef0123456789',
+  }));
   const backendRoot = resolve(import.meta.dirname, '../..');
   const projectRoot = resolve(backendRoot, '..');
   const migrations = new MigrationRunner(pool, resolve(backendRoot, 'database/migrations'));
   const seeds = new SeedRunner(pool, [resolve(backendRoot, 'database/seeders'), resolve(projectRoot, 'database/seeds')]);
 
   try {
+    const [timezoneRows] = await pool.query<Array<RowDataPacket & { sessionTimezone: string }>>(
+      'SELECT @@session.time_zone AS sessionTimezone',
+    );
+    assert.equal(timezoneRows[0]?.sessionTimezone, '+00:00');
+    while ((await migrations.rollbackLastBatch()).length > 0) {
+      // Reset the dedicated integration database so the first migration assertion is repeatable.
+    }
     assert.deepEqual(await migrations.migrate(), [
       '001_initial_schema.sql',
       '002_auth_rate_limits.sql',
@@ -283,6 +295,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.equal((await payments.get(claimSession.user.publicId, checkout.publicId)).status, 'paid');
     const [activated] = await pool.execute<Array<RowDataPacket & { plan_code: string; card_plan: string; ends_at: Date; events: number }>>(`SELECT p.code plan_code,c.plan_code card_plan,s.ends_at,(SELECT COUNT(*) FROM payment_events WHERE payment_id=pay.id) events FROM payments pay JOIN subscriptions s ON s.id=pay.subscription_id JOIN plans p ON p.id=s.plan_id JOIN cards c ON c.user_id=pay.user_id WHERE pay.public_id=? LIMIT 1`, [checkout.publicId]);
     assert.equal(activated[0]?.plan_code, 'basic'); assert.equal(activated[0]?.card_plan, 'basic'); assert.equal(Number(activated[0]?.events), 1);
+    assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'basic');
     const mismatched = await payments.checkout(claimSession.user.publicId, { planCode: 'pro' });
     const mismatchNotice = { ...settlement, orderId: mismatched.merchantOrderId, grossAmount: '1.00', transactionId: 'midtrans-trx-2', eventKey: 'event-mismatch-2', raw: { order_id: mismatched.merchantOrderId, transaction_status: 'settlement', gross_amount: '1.00' } };
     await assert.rejects(() => notifications.notification(mismatchNotice), { code: 'PAYMENT_AMOUNT_MISMATCH' });

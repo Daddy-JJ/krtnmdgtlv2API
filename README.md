@@ -13,4 +13,12 @@ The backend uses Node.js 22.18+, Express 5, strict TypeScript, and MySQL2. Sourc
 
 For cPanel Passenger, register `app.js` with a Node.js runtime in the locked `>=22.18 <23` range.
 
+## Deployment mirror
+
+This repository is a deployment mirror. Authoritative backend development
+lives in `KartuNamaDigital-v2/backend`; do not implement business changes here
+independently. The root Passenger bridge and root-relative `.env` loader are
+deployment adapters that must be preserved during synchronization. Database
+dumps and retired CommonJS API implementations are prohibited.
+
 Phase 1M was accepted on 2026-07-18. Auth/Starter, Card, sharing, payment, minimal admin APIs, and `/me` account contract have been implemented through accepted gates. The former PHP/Composer runtime files have been removed; historical implementation evidence remains only in the Phase 1 report and changelog.

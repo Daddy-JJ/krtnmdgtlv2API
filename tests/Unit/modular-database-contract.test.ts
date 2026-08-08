@@ -5,11 +5,12 @@ import test from 'node:test';
 const read = (relativePath: string) => readFile(new URL(`../../${relativePath}`, import.meta.url), 'utf8');
 
 test('database migrations preserve the locked integrity and indexing baseline', async () => {
-  const [initial, rateLimits, activeCard, annualTerm] = await Promise.all([
+  const [initial, rateLimits, activeCard, annualTerm, pool] = await Promise.all([
     read('database/migrations/001_initial_schema.sql'),
     read('database/migrations/002_auth_rate_limits.sql'),
     read('database/migrations/003_active_card_uniqueness.sql'),
     read('database/migrations/005_annual_subscription_term.sql'),
+    read('src/shared/database/pool.ts'),
   ]);
   const tables = [
     'users', 'plans', 'plan_features', 'themes', 'plan_theme_access', 'subscriptions',
@@ -31,6 +32,8 @@ test('database migrations preserve the locked integrity and indexing baseline', 
   assert.match(activeCard, /ADD UNIQUE KEY uq_cards_active_user \(active_user_id\)/);
   assert.match(annualTerm,/duration_days=365/);
   assert.match(annualTerm,/code IN \('basic','pro'\)/);
+  assert.match(pool, /timezone:\s*'Z'/);
+  assert.match(pool, /SET time_zone = '\+00:00'/);
 });
 
 test('business modules retain repository interfaces and MySQL adapter boundaries', async () => {

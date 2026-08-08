@@ -4,7 +4,7 @@ import { assessHostingPreflight, type HostingPreflightInput } from '../../script
 
 const validInput: HostingPreflightInput = {
   nodeVersion: 'v22.18.0',
-  argon2Available: true,
+  argon2idAvailable: true,
   packageEngine: '>=22.18 <23',
   environment: {
     APP_ENV: 'staging',
@@ -30,11 +30,11 @@ test('hosting preflight accepts only the complete Node.js 22 shared-hosting base
   assert.equal(result.passed, 20);
 });
 
-test('hosting preflight fails closed for unsupported Node.js, missing controls, and wildcard CORS', () => {
+test('hosting preflight fails closed for unsupported Node.js 24, missing controls, and wildcard CORS', () => {
   const result = assessHostingPreflight({
     ...validInput,
-    nodeVersion: 'v24.0.0',
-    argon2Available: false,
+    nodeVersion: 'v24.18.0',
+    argon2idAvailable: false,
     environment: {
       ...validInput.environment,
       APP_DEBUG: 'true',

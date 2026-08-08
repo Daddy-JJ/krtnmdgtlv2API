@@ -1,1 +1,26 @@
-import{Router}from'express';import type{AdminController}from'../controllers/admin-controller.ts';import type{SuperAdminController}from'../controllers/super-admin-controller.ts';export function createAdminRouter(c:AdminController,superAdmin?:SuperAdminController):Router{const r=Router();r.get('/plans',c.plans);r.put('/plans/:code',c.updatePlan);r.get('/payments',c.payments);r.get('/users',c.users);r.get('/cards',c.cards);r.get('/themes',c.themes);r.put('/themes/:code',c.updateTheme);r.get('/activity',c.activity);if(superAdmin){r.get('/statistics',superAdmin.statistics);r.get('/users/:publicId',superAdmin.user);r.post('/users/:publicId/interventions',superAdmin.intervene);r.get('/cv-specialists',superAdmin.specialists);r.get('/subscriptions',superAdmin.subscriptions);r.get('/usage',superAdmin.usage);r.get('/interventions',superAdmin.interventions);r.get('/settings',superAdmin.settings);r.put('/settings/:key',superAdmin.updateSetting);}return r;}
+import { Router } from 'express';
+import type { AdminController } from '../controllers/admin-controller.ts';
+import type { SuperAdminController } from '../controllers/super-admin-controller.ts';
+
+export function createAdminRouter(controller: AdminController, superAdmin?: SuperAdminController): Router {
+  const router = Router();
+  router.get('/plans', controller.plans);
+  router.put('/plans/:code', controller.updatePlan);
+  router.get('/payments', controller.payments);
+  router.get('/users', controller.users);
+  router.get('/cards', controller.cards);
+  router.get('/themes', controller.themes);
+  router.put('/themes/:code', controller.updateTheme);
+  router.get('/activity', controller.activity);
+  if (superAdmin) {
+    router.get('/statistics', superAdmin.statistics);
+    router.get('/users/:publicId', superAdmin.user);
+    router.post('/users/:publicId/interventions', superAdmin.intervene);
+    router.get('/cv-specialists', superAdmin.specialists);
+    router.get('/subscriptions', superAdmin.subscriptions);
+    router.get('/usage', superAdmin.usage);
+    router.get('/interventions', superAdmin.interventions);
+    router.get('/settings', superAdmin.settings);
+  }
+  return router;
+}

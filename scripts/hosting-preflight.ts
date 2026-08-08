@@ -1,3 +1,4 @@
+import argon2 from 'argon2';
 import { constants, access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -10,7 +11,7 @@ type Check = Readonly<{
 
 export type HostingPreflightInput = Readonly<{
   nodeVersion: string;
-  argon2Available: boolean;
+  argon2idAvailable: boolean;
   environment: NodeJS.ProcessEnv;
   packageEngine: string;
   files: Readonly<{
@@ -60,7 +61,7 @@ export function assessHostingPreflight(input: HostingPreflightInput): HostingPre
   };
 
   add('runtime.node22', supportedNodeVersion(input.nodeVersion), 'Effective application runtime is Node.js >=22.18 and <23.');
-  add('runtime.argon2', input.argon2Available, 'The Node.js 22-compatible Argon2 dependency is available.');
+  add('runtime.argon2id', input.argon2idAvailable, 'The Argon2id password adapter is available.');
   add('package.engine', input.packageEngine === '>=22.18 <23', 'Package engine matches the locked runtime range.');
   add('file.startup', input.files.startup, 'Passenger startup file app.js is readable.');
   add('file.server', input.files.serverSource, 'Backend server source is readable.');
@@ -128,7 +129,7 @@ export async function collectHostingPreflight(backendRoot = resolve(import.meta.
 
   return assessHostingPreflight({
     nodeVersion: process.version,
-    argon2Available: await import('argon2').then(() => true, () => false),
+    argon2idAvailable: typeof argon2.hash === 'function' && typeof argon2.verify === 'function',
     environment: process.env,
     packageEngine,
     files: { startup, serverSource, jwtPrivateKey, jwtPublicKey },

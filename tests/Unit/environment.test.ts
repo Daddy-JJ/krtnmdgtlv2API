@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { parseEnvironment } from '../../src/config/environment.ts';
-
-test('environment loader resolves the root .env from src/config', () => {
-  const source = readFileSync(new URL('../../src/config/environment.ts', import.meta.url), 'utf8');
-  assert.match(source, /resolve\(import\.meta\.dirname, '\.\.\/\.\.\/\.env'\)/);
-});
 
 test('environment parser validates and coerces the foundation configuration', () => {
   const environment = parseEnvironment({

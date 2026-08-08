@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { loadMigrationFile } from '../../src/shared/database/migration-file.ts';
+import { MigrationRunner } from '../../src/shared/database/migration-runner.ts';
 import { splitSqlStatements } from '../../src/shared/database/sql-statement-splitter.ts';
 
 test('migration file requires up/down markers and has a SHA-256 checksum', async () => {
@@ -25,6 +26,29 @@ test('SQL splitter preserves semicolons inside quoted values', () => {
   const statements = splitSqlStatements("INSERT INTO x VALUES ('a;b'); UPDATE x SET value = 'c';");
   assert.equal(statements.length, 2);
   assert.match(statements[0] ?? '', /'a;b'/);
+});
+
+test('migration status is read-only for the runtime database account', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'knd-node-migration-status-'));
+  await writeFile(directory + '/001_example.sql', '-- +migrate Up\nCREATE TABLE example (id INT);\n-- +migrate Down\nDROP TABLE example;\n');
+  const executeCalls: string[] = [];
+  const pool = {
+    execute: async (sql: string) => {
+      executeCalls.push(sql);
+      return [[{ migration: '001_example.sql', checksum: 'recorded-checksum' }], []];
+    },
+    query: async () => {
+      throw new Error('status must not issue DDL');
+    },
+  } as never;
+
+  try {
+    const runner = new MigrationRunner(pool, directory);
+    assert.deepEqual(await runner.status(), { '001_example.sql': true });
+    assert.deepEqual(executeCalls, ['SELECT migration, checksum FROM schema_migrations']);
+  } finally {
+    await rm(directory, { recursive: true });
+  }
 });
 
 test('authoritative migration includes every required table and safe down statements', async () => {

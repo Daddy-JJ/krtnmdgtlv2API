@@ -77,6 +77,7 @@ import { ResumeFileController } from './modules/resume-service/files/resume-file
 import { ResumeOperationsService } from './modules/resume-service/services/resume-operations-service.ts';
 import { ResumeOperationsController } from './modules/resume-service/controllers/resume-operations-controller.ts';
 import { SuperAdminService } from './modules/admin/services/super-admin-service.ts';
+import { MySqlSuperAdminRepository } from './modules/admin/repositories/mysql-super-admin-repository.ts';
 import { SuperAdminController } from './modules/admin/controllers/super-admin-controller.ts';
 import { FeedbackController } from './modules/feedback/controllers/feedback-controller.ts';
 import { MySqlFeedbackRepository } from './modules/feedback/repositories/mysql-feedback-repository.ts';
@@ -145,7 +146,7 @@ const rbac=new RbacService(pool);
 const resumeController=new ResumeController(new ResumeService(new MySqlResumeRepository(pool)),actors,rbac);
 const resumeFileController=new ResumeFileController(new ResumeFileService(pool,new ResumePrivateStorage(resolve(backendRoot,'storage/private/resume-service')),rbac),actors);
 const resumeOperationsController=new ResumeOperationsController(new ResumeOperationsService(pool,rbac),actors);
-const superAdminController=new SuperAdminController(new SuperAdminService(pool,rbac),actors,rbac);
+const superAdminController=new SuperAdminController(new SuperAdminService(new MySqlSuperAdminRepository(pool),rbac),actors,rbac);
 const customizationController = new CardCustomizationController(new CardCustomizationService({repository:cardRepository,slugs:new CustomSlugService(),capabilities:new PlanCapabilityService(new MySqlPlanCapabilityReader(pool)),appUrl:environment.APP_URL}),actors);
 const capabilities=new PlanCapabilityService(new MySqlPlanCapabilityReader(pool));
 const contentRepository=new MySqlCardContentRepository(pool);

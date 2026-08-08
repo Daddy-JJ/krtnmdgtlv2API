@@ -12,11 +12,23 @@ test('passwords use salted Argon2id hashes and constant-time verification', asyn
   const first = await hasher.hash('correct horse battery staple');
   const second = await hasher.hash('correct horse battery staple');
 
-  assert.match(first, /^\$argon2id\$v=19\$m=65536,t=3,p=1\$/);
+  assert.match(first, /^\$argon2id\$v=19\$m=65536,p=1,t=3\$/);
   assert.notEqual(first, second);
   assert.equal(await hasher.verify('correct horse battery staple', first), true);
   assert.equal(await hasher.verify('wrong password', first), false);
   assert.equal(await hasher.verify('correct horse battery staple', 'malformed'), false);
+});
+
+test('password verification accepts the legacy Node 24 base64url PHC encoding', async () => {
+  const hasher = new Argon2idPasswordHasher();
+  const current = await hasher.hash('migration-compatible-password');
+  const legacy = current.replace(/\$([^$]+)\$([^$]+)$/, (_whole, salt, hash) => {
+    const encode = (value: string) => Buffer.from(value, 'base64').toString('base64url');
+    return `$${encode(salt)}$${encode(hash)}`;
+  });
+
+  assert.equal(await hasher.verify('migration-compatible-password', legacy), true);
+  assert.equal(await hasher.verify('incorrect-password', legacy), false);
 });
 
 test('opaque credentials contain at least 256 bits and persist only SHA-256 hashes', () => {

@@ -1,5 +1,5 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { argon2id, hash as argon2Hash } from 'argon2';
+import argon2 from 'argon2';
+import { randomBytes } from 'node:crypto';
 
 const memory = 65_536;
 const passes = 3;
@@ -7,17 +7,29 @@ const parallelism = 1;
 const tagLength = 32;
 const version = 19;
 
-function derive(password: string, salt: Buffer): Promise<Buffer> {
-  return argon2Hash(password, {
-    type: argon2id,
-    version,
-    memoryCost: memory,
-    timeCost: passes,
-    parallelism,
-    hashLength: tagLength,
-    salt,
-    raw: true,
-  });
+const phcPattern = /^\$argon2id\$v=19\$(?:m=65536,t=3,p=1|m=65536,p=1,t=3)\$([A-Za-z0-9+/_-]+)\$([A-Za-z0-9+/_-]+)$/;
+
+function standardBase64(value: Buffer): string {
+  return value.toString('base64').replace(/=+$/, '');
+}
+
+/**
+ * The former Node 24 native adapter used base64url in its PHC-like output.
+ * Convert only hashes with the locked parameters so existing accounts remain
+ * valid after the Node 22 runtime migration.
+ */
+function normalizeLockedHash(encodedHash: string): string | null {
+  const match = phcPattern.exec(encodedHash);
+  if (!match) return null;
+
+  try {
+    const salt = Buffer.from(match[1]!, 'base64url');
+    const hash = Buffer.from(match[2]!, 'base64url');
+    if (salt.length !== 16 || hash.length !== tagLength) return null;
+    return `$argon2id$v=${version}$m=${memory},p=${parallelism},t=${passes}$${standardBase64(salt)}$${standardBase64(hash)}`;
+  } catch {
+    return null;
+  }
 }
 
 export interface PasswordHasher {
@@ -27,23 +39,22 @@ export interface PasswordHasher {
 
 export class Argon2idPasswordHasher implements PasswordHasher {
   async hash(password: string): Promise<string> {
-    const salt = randomBytes(16);
-    const hash = await derive(password, salt);
-    return `$argon2id$v=${version}$m=${memory},t=${passes},p=${parallelism}$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+    return argon2.hash(password, {
+      type: argon2.argon2id,
+      version,
+      memoryCost: memory,
+      timeCost: passes,
+      parallelism,
+      hashLength: tagLength,
+      salt: randomBytes(16),
+    });
   }
 
   async verify(password: string, encodedHash: string): Promise<boolean> {
-    const parts = encodedHash.split('$');
-    if (parts.length !== 6 || parts[1] !== 'argon2id' || parts[2] !== `v=${version}` || parts[3] !== `m=${memory},t=${passes},p=${parallelism}`) {
-      return false;
-    }
-
+    const normalized = normalizeLockedHash(encodedHash);
+    if (!normalized) return false;
     try {
-      const salt = Buffer.from(parts[4] ?? '', 'base64url');
-      const expected = Buffer.from(parts[5] ?? '', 'base64url');
-      if (salt.length !== 16 || expected.length !== tagLength) return false;
-      const actual = await derive(password, salt);
-      return actual.length === expected.length && timingSafeEqual(actual, expected);
+      return await argon2.verify(normalized, password);
     } catch {
       return false;
     }
