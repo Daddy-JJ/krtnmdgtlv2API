@@ -52,7 +52,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
   const backendRoot = resolve(import.meta.dirname, '../..');
   const projectRoot = resolve(backendRoot, '..');
   const migrations = new MigrationRunner(pool, resolve(backendRoot, 'database/migrations'));
-  const seeds = new SeedRunner(pool, [resolve(backendRoot, 'database/seeders'), resolve(projectRoot, 'database/seeds')]);
+  const seeds = new SeedRunner(pool, [resolve(backendRoot, 'database/seeders')]);
 
   try {
     const [timezoneRows] = await pool.query<Array<RowDataPacket & { sessionTimezone: string }>>(

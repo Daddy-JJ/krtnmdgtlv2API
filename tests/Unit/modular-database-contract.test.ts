@@ -36,6 +36,21 @@ test('database migrations preserve the locked integrity and indexing baseline', 
   assert.match(pool, /SET time_zone = '\+00:00'/);
 });
 
+test('standalone deployment keeps every seed inside its repository', async () => {
+  const [seedScript, plans, themes] = await Promise.all([
+    read('scripts/seed.ts'),
+    read('database/seeders/001_plans_and_features.sql'),
+    read('database/seeders/002_card_themes.sql'),
+  ]);
+
+  assert.doesNotMatch(seedScript, /\.\.\/\.\.\/database\/seeds/);
+  assert.match(plans, /'starter'/);
+  assert.match(plans, /'basic'/);
+  assert.match(plans, /'pro'/);
+  assert.match(themes, /starter-clean/);
+  assert.match(themes, /pro-vertical-modern-dark/);
+});
+
 test('business modules retain repository interfaces and MySQL adapter boundaries', async () => {
   const pairs = [
     ['src/modules/account/repositories/account-repository.ts', 'src/modules/account/repositories/mysql-account-repository.ts'],
