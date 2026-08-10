@@ -11,7 +11,7 @@ The backend uses Node.js 22.18+, Express 5, strict TypeScript, and MySQL2. Sourc
 5. Run `npm start`; the REST base path is `/api/v1`.
 6. Run `npm run qa`. Set `RUN_DB_TESTS=true` for the database integration suite.
 
-For cPanel LiteSpeed Passenger, register `passenger.cjs` with a Node.js runtime in the locked `>=22.18 <23` range. The CommonJS bridge dynamically imports the ESM/TypeScript server because LiteSpeed loads startup files with `require()`.
+For cPanel LiteSpeed Passenger, register the default `app.js` entrypoint with a Node.js runtime in the locked `>=22.18 <23` range. Git stores `app.js` as a symbolic link to `passenger.cjs`, so a launcher that hardcodes the default filename still reaches the CommonJS bridge. The bridge dynamically imports the ESM/TypeScript server because LiteSpeed loads startup files with `require()`.
 
 ## Deployment mirror
 

@@ -63,7 +63,7 @@ export function assessHostingPreflight(input: HostingPreflightInput): HostingPre
   add('runtime.node22', supportedNodeVersion(input.nodeVersion), 'Effective application runtime is Node.js >=22.18 and <23.');
   add('runtime.scrypt', input.scryptAvailable, 'The built-in asynchronous scrypt password adapter is available.');
   add('package.engine', input.packageEngine === '>=22.18 <23', 'Package engine matches the locked runtime range.');
-  add('file.startup', input.files.startup, 'LiteSpeed Passenger startup file passenger.cjs is readable.');
+  add('file.startup', input.files.startup, 'Default LiteSpeed Passenger app.js entrypoint resolves to a readable CommonJS bridge.');
   add('file.server', input.files.serverSource, 'Backend server source is readable.');
   add('storage.private', input.writable.privateStorage, 'Private storage is writable by the application process.');
   add('storage.qr', input.writable.qrCache, 'QR cache storage is writable by the application process.');
@@ -118,7 +118,7 @@ export async function collectHostingPreflight(backendRoot = resolve(import.meta.
   }
 
   const [startup, serverSource, jwtPrivateKey, jwtPublicKey, privateStorage, qrCache, publicStorage] = await Promise.all([
-    readable(resolve(backendRoot, 'passenger.cjs')),
+    readable(resolve(backendRoot, 'app.js')),
     readable(resolve(backendRoot, 'src/server.ts')),
     readable(resolve(backendRoot, 'storage/private/jwt-private.pem')),
     readable(resolve(backendRoot, 'storage/private/jwt-public.pem')),

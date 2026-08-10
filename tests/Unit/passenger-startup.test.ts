@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile, readlink } from 'node:fs/promises';
 import test from 'node:test';
 
 test('LiteSpeed Passenger bridge is CommonJS and defers the async ESM graph', async () => {
@@ -10,4 +10,12 @@ test('LiteSpeed Passenger bridge is CommonJS and defers the async ESM graph', as
   assert.match(source, /\.catch\(/);
   assert.doesNotMatch(source, /require\(['"]\.\/src\/server\.ts['"]\)/);
   assert.doesNotMatch(source, /^\s*await\s/m);
+});
+
+test('default Passenger app.js resolves to the CommonJS bridge', async () => {
+  const appUrl = new URL('../../app.js', import.meta.url);
+  const metadata = await lstat(appUrl);
+
+  assert.equal(metadata.isSymbolicLink(), true);
+  assert.equal(await readlink(appUrl), 'passenger.cjs');
 });
