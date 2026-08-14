@@ -83,6 +83,10 @@ import { FeedbackController } from './modules/feedback/controllers/feedback-cont
 import { MySqlFeedbackRepository } from './modules/feedback/repositories/mysql-feedback-repository.ts';
 import { createFeedbackRouter } from './modules/feedback/routes/feedback-router.ts';
 import { FeedbackService } from './modules/feedback/services/feedback-service.ts';
+import { LandingContentController } from './modules/landing-content/controllers/landing-content-controller.ts';
+import { MySqlLandingContentRepository } from './modules/landing-content/repositories/mysql-landing-content-repository.ts';
+import { createAdminLandingContentRouter, createPublicLandingContentRouter } from './modules/landing-content/routes/landing-content-router.ts';
+import { LandingContentService } from './modules/landing-content/services/landing-content-service.ts';
 
 const environment = loadEnvironment();
 const pool = createDatabasePool(environment);
@@ -143,6 +147,7 @@ const authService = new AuthService({
 const cardRepository = new MySqlCardRepository(pool);
 const actors = new AuthenticatedActorService(accessTokens, csrfTokens);
 const rbac=new RbacService(pool);
+const landingContentController = new LandingContentController(new LandingContentService(new MySqlLandingContentRepository(pool), rbac), actors);
 const resumeController=new ResumeController(new ResumeService(new MySqlResumeRepository(pool)),actors,rbac);
 const resumeFileController=new ResumeFileController(new ResumeFileService(pool,new ResumePrivateStorage(resolve(backendRoot,'storage/private/resume-service')),rbac),actors);
 const resumeOperationsController=new ResumeOperationsController(new ResumeOperationsService(pool,rbac),actors);
@@ -183,9 +188,11 @@ const app = createApp({
   publicVCardRouter:createPublicVCardRouter(new PublicVCardController(cardService, new VCardRenderingService())),
   publicQrRouter:createPublicQrRouter(new PublicQrController(new QrCodeRenderingService({cards:cardService,renderer:new QrcodeRenderer(),cache:new QrFileCache(resolve(backendRoot,'storage/cache/qr')),rateLimiter}))),
   publicLogoRouter:createPublicLogoRouter(logoController),
+  publicLandingContentRouter: createPublicLandingContentRouter(landingContentController),
   paymentRouter:createPaymentRouter(paymentController),
   subscriptionRouter:createSubscriptionRouter(paymentController),
   adminRouter:createAdminRouter(new AdminController(new AdminService(new MySqlAdminRepository(pool)),actors),superAdminController),
+  adminLandingContentRouter: createAdminLandingContentRouter(landingContentController),
   resumeRouter:createResumeRouter(resumeController),
   resumeRequestRouter:createResumeRequestRouter(resumeController,resumeFileController),
   adminResumeRouter:createAdminResumeRouter(resumeController,resumeOperationsController),

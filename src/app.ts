@@ -32,6 +32,8 @@ export type AppDependencies = Readonly<{
   resumeRequestRouter?:Router;
   adminResumeRouter?:Router;
   feedbackRouter?:Router;
+  publicLandingContentRouter?: Router;
+  adminLandingContentRouter?: Router;
 }>;
 
 export function createApp(dependencies: AppDependencies): Express {
@@ -84,9 +86,11 @@ export function createApp(dependencies: AppDependencies): Express {
   if (dependencies.publicVCardRouter) app.use('/api/v1/public/cards', dependencies.publicVCardRouter);
   if (dependencies.publicQrRouter) app.use('/api/v1/public/cards', dependencies.publicQrRouter);
   if(dependencies.publicLogoRouter)app.use('/api/v1/public/cards',dependencies.publicLogoRouter);
+  if (dependencies.publicLandingContentRouter) app.use('/api/v1/public/content', dependencies.publicLandingContentRouter);
   if(dependencies.paymentRouter)app.use('/api/v1/payments',dependencies.paymentRouter);
   if(dependencies.subscriptionRouter)app.use('/api/v1/subscriptions',dependencies.subscriptionRouter);
   if(dependencies.adminRouter)app.use('/api/v1/admin',dependencies.adminRouter);
+  if (dependencies.adminLandingContentRouter) app.use('/api/v1/admin', dependencies.adminLandingContentRouter);
   if(dependencies.resumeRouter)app.use('/api/v1/resume-service',dependencies.resumeRouter);
   if(dependencies.resumeRequestRouter)app.use('/api/v1/resume-requests',dependencies.resumeRequestRouter);
   if(dependencies.adminResumeRouter)app.use('/api/v1/admin/resume-requests',dependencies.adminResumeRouter);
