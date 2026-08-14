@@ -7,6 +7,7 @@ export function createAuthRouter(controller: AuthController): Router {
   router.post('/email/verify-otp', controller.verifyOtp);
   router.post('/email/resend-otp', controller.resendOtp);
   router.post('/login', controller.login);
+  router.get('/csrf', controller.csrf);
   router.post('/refresh', controller.refresh);
   router.post('/logout', controller.logout);
   router.post('/forgot-password', controller.forgotPassword);

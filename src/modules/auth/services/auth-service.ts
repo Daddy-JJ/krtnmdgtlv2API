@@ -117,6 +117,12 @@ export class AuthService {
     await this.#repository.transaction((transaction) => transaction.revokeRefreshFamily(claims.sid, new Date()));
   }
 
+  issueCsrf(accessToken: string): string {
+    const claims = this.#accessTokens.verify(accessToken);
+    if (!claims) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required.');
+    return this.#csrf.issue(claims.sid);
+  }
+
   async forgotPassword(email: string, clientKey: string): Promise<void> {
     await this.#limit('forgot-password', `${clientKey}:${email}`, 5, 3600);
     await this.#repository.transaction(async (transaction) => {

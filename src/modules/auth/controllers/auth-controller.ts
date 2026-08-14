@@ -54,6 +54,15 @@ export class AuthController {
     response.json({ success: true, message: 'Session rotated.', data: { user: session.user } });
   };
 
+  csrf = async (request: Request, response: Response): Promise<void> => {
+    const accessToken = readCookie(request, 'access_token');
+    if (!accessToken) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required.');
+    const csrfToken = this.#service.issueCsrf(accessToken);
+    response.setHeader('Cache-Control', 'no-store');
+    response.cookie('csrf_token', csrfToken, this.#cookies.csrf());
+    response.json({ success: true, message: 'CSRF token issued.', data: { csrfToken } });
+  };
+
   logout = async (request: Request, response: Response): Promise<void> => {
     const accessToken = readCookie(request, 'access_token');
     const csrfToken = request.header('x-csrf-token');
