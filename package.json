@@ -18,6 +18,7 @@
     "migrate:rollback": "node scripts/migrate.ts down",
     "seed": "node scripts/seed.ts",
     "seed:local-qa": "node scripts/seed-local-qa-users.ts",
+    "users:provision-internal": "node scripts/provision-internal-users.ts",
     "keys:generate": "node scripts/generate-jwt-keys.ts",
     "hosting:preflight": "node scripts/hosting-preflight.ts",
     "mail:work": "node scripts/mail-worker.ts",
