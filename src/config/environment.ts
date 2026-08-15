@@ -94,7 +94,7 @@ export function parseEnvironment(values: NodeJS.ProcessEnv): Environment {
 }
 
 export function loadEnvironment(): Environment {
-  const environmentFile = resolve(import.meta.dirname, '../../../.env');
+  const environmentFile = resolve(import.meta.dirname, '../../.env');
   if (existsSync(environmentFile)) process.loadEnvFile(environmentFile);
   return parseEnvironment(process.env);
 }
