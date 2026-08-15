@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -92,4 +92,12 @@ test('theme catalog migration renames all designs and enforces cumulative plan a
   assert.match(migration.upSql, /p\.code = 'basic' AND t\.code IN \('starter-clean', 'basic-blue-line', 'basic-soft-geometry'\)/);
   assert.match(migration.upSql, /p\.code = 'pro' AND t\.code IN/);
   assert.match(migration.downSql, /THEN 'Starter Clean'/);
+});
+
+test('RBAC reconciliation preserves active assignments and derives the compatibility snapshot', async () => {
+  const sql = await readFile(new URL('../../database/migrations/007_rbac_authority_reconciliation.sql', import.meta.url), 'utf8');
+  assert.match(sql, /NOT EXISTS[\s\S]*revoked_at IS NULL/);
+  assert.match(sql, /ORDER BY FIELD\(r\.code,'super_admin','resume_service_admin','resume_quality_reviewer','cv_specialist','member'\)/);
+  assert.match(sql, /UPDATE users u[\s\S]*user_roles/);
+  assert.doesNotMatch(sql, /DELETE FROM user_roles|DROP TABLE/);
 });

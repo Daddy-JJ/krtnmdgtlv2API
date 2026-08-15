@@ -1,13 +1,18 @@
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { AuthRepository, AuthTransaction, OtpRecord, RefreshRecord, ResetRecord, UserRecord } from './auth-repository.ts';
-import { normalizeRole } from '../../../shared/security/roles.ts';
+import { normalizeRoles, primaryRole } from '../../../shared/security/roles.ts';
 
-type UserRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string; role: string; status: string; email_verified_at: Date | null };
+type UserRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string; active_roles: string | null; status: string; email_verified_at: Date | null };
+
+const activeRolesSql = `(SELECT GROUP_CONCAT(DISTINCT r.code ORDER BY FIELD(r.code,'super_admin','resume_service_admin','resume_quality_reviewer','cv_specialist','member'))
+  FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+  WHERE ur.user_id=u.id AND ur.revoked_at IS NULL)`;
 
 function user(row: UserRow): UserRecord {
-  const role = normalizeRole(row.role);
-  if (!role) throw new Error('Unsupported account role.');
-  return { id: row.id, publicId: row.public_id, email: row.email, passwordHash: row.password_hash, role, status: row.status, emailVerifiedAt: row.email_verified_at };
+  const roles = normalizeRoles(row.active_roles?.split(',') ?? []);
+  const role = primaryRole(roles);
+  if (!role) throw new Error('Account has no active canonical role.');
+  return { id: row.id, publicId: row.public_id, email: row.email, passwordHash: row.password_hash, role, roles, status: row.status, emailVerifiedAt: row.email_verified_at };
 }
 
 class MySqlAuthTransaction implements AuthTransaction {
@@ -15,14 +20,14 @@ class MySqlAuthTransaction implements AuthTransaction {
   constructor(connection: PoolConnection) { this.#connection = connection; }
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
-    const [rows] = await this.#connection.execute<UserRow[]>('SELECT id, public_id, email, password_hash, role, status, email_verified_at FROM users WHERE email = ? FOR UPDATE', [email]);
+    const [rows] = await this.#connection.execute<UserRow[]>(`SELECT u.id,u.public_id,u.email,u.password_hash,${activeRolesSql} active_roles,u.status,u.email_verified_at FROM users u WHERE u.email=? FOR UPDATE`, [email]);
     return rows[0] ? user(rows[0]) : null;
   }
 
   async insertUser(publicId: string, email: string, passwordHash: string, now: Date): Promise<UserRecord> {
     const [result] = await this.#connection.execute<ResultSetHeader>('INSERT INTO users (public_id, email, password_hash, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [publicId, email, passwordHash, 'member', 'active', now, now]);
     await this.#connection.execute(`INSERT INTO user_roles(user_id,role_id,granted_at) SELECT ?,id,? FROM roles WHERE code='member'`, [result.insertId, now]);
-    return { id: result.insertId, publicId, email, passwordHash, role: 'member', status: 'active', emailVerifiedAt: null };
+    return { id: result.insertId, publicId, email, passwordHash, role: 'member', roles: ['member'], status: 'active', emailVerifiedAt: null };
   }
 
   async markEmailVerified(userId: number, now: Date): Promise<void> {
@@ -56,12 +61,13 @@ class MySqlAuthTransaction implements AuthTransaction {
   }
 
   async findRefresh(tokenHash: string): Promise<RefreshRecord | null> {
-    const [rows] = await this.#connection.execute<Array<RowDataPacket & { id: number; user_id: number; user_public_id: string; email: string; family_id: string; role: string; status: string; email_verified_at: Date | null; expires_at: Date; used_at: Date | null; revoked_at: Date | null }>>('SELECT rt.id, rt.user_id, u.public_id AS user_public_id, u.email, rt.family_id, u.role, u.status, u.email_verified_at, rt.expires_at, rt.used_at, rt.revoked_at FROM refresh_tokens rt JOIN users u ON u.id = rt.user_id WHERE rt.token_hash = ? FOR UPDATE', [tokenHash]);
+    const [rows] = await this.#connection.execute<Array<RowDataPacket & { id: number; user_id: number; user_public_id: string; email: string; family_id: string; active_roles: string | null; status: string; email_verified_at: Date | null; expires_at: Date; used_at: Date | null; revoked_at: Date | null }>>(`SELECT rt.id,rt.user_id,u.public_id AS user_public_id,u.email,rt.family_id,${activeRolesSql} active_roles,u.status,u.email_verified_at,rt.expires_at,rt.used_at,rt.revoked_at FROM refresh_tokens rt JOIN users u ON u.id=rt.user_id WHERE rt.token_hash=? FOR UPDATE`, [tokenHash]);
     const row = rows[0];
     if (!row) return null;
-    const role = normalizeRole(row.role);
-    if (!role) throw new Error('Unsupported account role.');
-    return { id: row.id, userId: row.user_id, userPublicId: row.user_public_id, email: row.email, familyId: row.family_id, role, status: row.status, emailVerifiedAt: row.email_verified_at, expiresAt: row.expires_at, usedAt: row.used_at, revokedAt: row.revoked_at };
+    const roles = normalizeRoles(row.active_roles?.split(',') ?? []);
+    const role = primaryRole(roles);
+    if (!role) throw new Error('Account has no active canonical role.');
+    return { id: row.id, userId: row.user_id, userPublicId: row.user_public_id, email: row.email, familyId: row.family_id, role, roles, status: row.status, emailVerifiedAt: row.email_verified_at, expiresAt: row.expires_at, usedAt: row.used_at, revokedAt: row.revoked_at };
   }
 
   async markRefreshUsed(id: number, now: Date): Promise<void> { await this.#connection.execute('UPDATE refresh_tokens SET used_at = ? WHERE id = ?', [now, id]); }

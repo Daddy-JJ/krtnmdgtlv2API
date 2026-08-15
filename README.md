@@ -4,7 +4,7 @@ The backend uses Node.js `>=22.18 <23`, Express 5, strict TypeScript, and MySQL2
 
 ## Local setup
 
-1. Copy root `.env.example` to root `.env` and set database values.
+1. Copy `.env.example` to `.env`, then set database values and unique local HMAC keys.
 2. Run `npm install` inside `backend/`.
 3. Run `npm run keys:generate` once, then configure untracked `CSRF_HMAC_KEY`, `OTP_HMAC_KEY`, and SMTP credentials.
 4. Run `npm run migrate` and `npm run seed`.

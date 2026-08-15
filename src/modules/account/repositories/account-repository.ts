@@ -4,6 +4,8 @@ export type AccountProfile = Readonly<{
   publicId: string;
   email: string;
   role: PlatformRole;
+  roles: readonly PlatformRole[];
+  permissions: readonly string[];
   status: string;
   emailVerifiedAt: Date | null;
 }>;

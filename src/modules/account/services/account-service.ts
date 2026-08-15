@@ -6,12 +6,14 @@ export type AccountProfileDto = Readonly<{
   publicId: string;
   email: string;
   role: PlatformRole;
+  roles: readonly PlatformRole[];
+  permissions: readonly string[];
   status: string;
   emailVerified: boolean;
 }>;
 
 function dto(profile: AccountProfile): AccountProfileDto {
-  return { publicId: profile.publicId, email: profile.email, role: profile.role, status: profile.status, emailVerified: profile.emailVerifiedAt !== null };
+  return { publicId: profile.publicId, email: profile.email, role: profile.role, roles: profile.roles, permissions: profile.permissions, status: profile.status, emailVerified: profile.emailVerifiedAt !== null };
 }
 
 export class AccountService {

@@ -87,6 +87,9 @@ import { LandingContentController } from './modules/landing-content/controllers/
 import { MySqlLandingContentRepository } from './modules/landing-content/repositories/mysql-landing-content-repository.ts';
 import { createAdminLandingContentRouter, createPublicLandingContentRouter } from './modules/landing-content/routes/landing-content-router.ts';
 import { LandingContentService } from './modules/landing-content/services/landing-content-service.ts';
+import { AdminMailController } from './modules/admin/controllers/admin-mail-controller.ts';
+import { AdminMailService } from './modules/admin/services/admin-mail-service.ts';
+import { MySqlAdminMailRepository } from './modules/admin/repositories/mysql-admin-mail-repository.ts';
 
 const environment = loadEnvironment();
 const pool = createDatabasePool(environment);
@@ -152,6 +155,7 @@ const resumeController=new ResumeController(new ResumeService(new MySqlResumeRep
 const resumeFileController=new ResumeFileController(new ResumeFileService(pool,new ResumePrivateStorage(resolve(backendRoot,'storage/private/resume-service')),rbac),actors);
 const resumeOperationsController=new ResumeOperationsController(new ResumeOperationsService(pool,rbac),actors);
 const superAdminController=new SuperAdminController(new SuperAdminService(new MySqlSuperAdminRepository(pool),rbac),actors,rbac);
+const adminMailController=new AdminMailController(new AdminMailService(new MySqlAdminMailRepository(pool),rbac),actors,rbac);
 const customizationController = new CardCustomizationController(new CardCustomizationService({repository:cardRepository,slugs:new CustomSlugService(),capabilities:new PlanCapabilityService(new MySqlPlanCapabilityReader(pool)),appUrl:environment.APP_URL}),actors);
 const capabilities=new PlanCapabilityService(new MySqlPlanCapabilityReader(pool));
 const contentRepository=new MySqlCardContentRepository(pool);
@@ -191,7 +195,7 @@ const app = createApp({
   publicLandingContentRouter: createPublicLandingContentRouter(landingContentController),
   paymentRouter:createPaymentRouter(paymentController),
   subscriptionRouter:createSubscriptionRouter(paymentController),
-  adminRouter:createAdminRouter(new AdminController(new AdminService(new MySqlAdminRepository(pool)),actors),superAdminController),
+  adminRouter:createAdminRouter(new AdminController(new AdminService(new MySqlAdminRepository(pool)),actors,rbac),superAdminController,adminMailController),
   adminLandingContentRouter: createAdminLandingContentRouter(landingContentController),
   resumeRouter:createResumeRouter(resumeController),
   resumeRequestRouter:createResumeRequestRouter(resumeController,resumeFileController),

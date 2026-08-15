@@ -9,7 +9,7 @@ import type { PlatformRole } from '../../../shared/security/roles.ts';
 import type { MailerPort } from '../../email/mailer-port.ts';
 import type { AuthRepository, RateLimiter, UserRecord } from '../repositories/auth-repository.ts';
 
-type SessionResult = Readonly<{ accessToken: string; refreshToken: string; csrfToken: string; user: { publicId: string; email: string; role: PlatformRole } }>;
+type SessionResult = Readonly<{ accessToken: string; refreshToken: string; csrfToken: string; user: { publicId: string; email: string; role: PlatformRole; roles: readonly PlatformRole[] } }>;
 
 export type AuthServiceConfig = Readonly<{
   accessTtlSeconds: number;
@@ -107,7 +107,7 @@ export class AuthService {
       accessToken: this.#accessTokens.issue({ userPublicId: outcome.userPublicId, sessionId: outcome.familyId, role: outcome.role }, now),
       refreshToken: replacement.plaintext,
       csrfToken: this.#csrf.issue(outcome.familyId),
-      user: { publicId: outcome.userPublicId, email: outcome.email, role: outcome.role },
+      user: { publicId: outcome.userPublicId, email: outcome.email, role: outcome.role, roles: outcome.roles },
     };
   }
 
@@ -150,7 +150,7 @@ export class AuthService {
     const familyId = randomUUID();
     const now = new Date();
     await this.#repository.transaction((transaction) => transaction.insertRefresh({ userId: user.id, tokenHash: refresh.hash, familyId, expiresAt: new Date(now.getTime() + this.#config.refreshTtlDays * 86_400_000), now }));
-    return { accessToken: this.#accessTokens.issue({ userPublicId: user.publicId, sessionId: familyId, role: user.role }, now), refreshToken: refresh.plaintext, csrfToken: this.#csrf.issue(familyId), user: { publicId: user.publicId, email: user.email, role: user.role } };
+    return { accessToken: this.#accessTokens.issue({ userPublicId: user.publicId, sessionId: familyId, role: user.role }, now), refreshToken: refresh.plaintext, csrfToken: this.#csrf.issue(familyId), user: { publicId: user.publicId, email: user.email, role: user.role, roles: user.roles } };
   }
 
   async #issueRegistrationOtp(email: string, passwordHash: string | null, createUser: boolean): Promise<string | null> {

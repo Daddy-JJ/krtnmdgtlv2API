@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import type { AdminController } from '../controllers/admin-controller.ts';
 import type { SuperAdminController } from '../controllers/super-admin-controller.ts';
+import type { AdminMailController } from '../controllers/admin-mail-controller.ts';
 
-export function createAdminRouter(controller: AdminController, superAdmin?: SuperAdminController): Router {
+export function createAdminRouter(controller: AdminController, superAdmin?: SuperAdminController, mail?: AdminMailController): Router {
   const router = Router();
   router.get('/plans', controller.plans);
   router.put('/plans/:code', controller.updatePlan);
@@ -21,6 +22,10 @@ export function createAdminRouter(controller: AdminController, superAdmin?: Supe
     router.get('/usage', superAdmin.usage);
     router.get('/interventions', superAdmin.interventions);
     router.get('/settings', superAdmin.settings);
+  }
+  if (mail) {
+    router.get('/mail/outbox', mail.list);
+    router.post('/mail/outbox/:publicId/retry', mail.retry);
   }
   return router;
 }

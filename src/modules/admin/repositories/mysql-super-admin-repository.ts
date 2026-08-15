@@ -130,6 +130,10 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
           [target.id, actorId, input.roleCode!],
         );
         if (result.affectedRows === 0) throw new AppError(422, 'INVALID_ROLE', 'Role is not recognized.');
+        await connection.execute(
+          `UPDATE users u SET u.role=(SELECT r.code FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND ur.revoked_at IS NULL ORDER BY FIELD(r.code,'super_admin','resume_service_admin','resume_quality_reviewer','cv_specialist','member') LIMIT 1),u.updated_at=UTC_TIMESTAMP() WHERE u.id=?`,
+          [target.id],
+        );
         previousValue = 'not_granted';
         newValue = input.roleCode ?? null;
       } else if (input.action === 'EXTEND_SUBSCRIPTION') {

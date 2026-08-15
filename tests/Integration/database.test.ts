@@ -70,6 +70,8 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '004_user_feedback.sql',
       '005_annual_subscription_term.sql',
       '005_theme_catalog_names_and_access.sql',
+      '006_landing_page_content.sql',
+      '007_rbac_authority_reconciliation.sql',
     ]);
     assert.deepEqual(await migrations.migrate(), []);
     assert.equal((await seeds.run()).length, 2);

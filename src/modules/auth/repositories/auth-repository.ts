@@ -6,6 +6,7 @@ export type UserRecord = Readonly<{
   email: string;
   passwordHash: string;
   role: PlatformRole;
+  roles: readonly PlatformRole[];
   status: string;
   emailVerifiedAt: Date | null;
 }>;
@@ -26,6 +27,7 @@ export type RefreshRecord = Readonly<{
   email: string;
   familyId: string;
   role: PlatformRole;
+  roles: readonly PlatformRole[];
   status: string;
   emailVerifiedAt: Date | null;
   expiresAt: Date;
