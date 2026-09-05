@@ -21,6 +21,15 @@ export class StarterController {
     response.status(201).json({ success: true, message: 'Starter card created.', data: result.card });
   };
 
+  openAccess = async (request: Request, response: Response): Promise<void> => {
+    const parsed = z.object({ publicId: publicIdSchema, token: z.string().min(1).max(256) }).strict().safeParse(request.body);
+    if (!parsed.success) throw this.#validation(parsed.error.issues);
+    const result = await this.#service.openAccess(parsed.data.publicId, parsed.data.token, request.ip ?? 'unknown');
+    this.#setManage(response, result);
+    response.set('Cache-Control', 'no-store');
+    response.json({ success: true, message: 'Starter access opened.', data: result.card });
+  };
+
   update = async (request: Request, response: Response): Promise<void> => {
     const publicId = publicIdSchema.safeParse(request.params.publicId);
     const input = starterCardInputSchema.safeParse(request.body);

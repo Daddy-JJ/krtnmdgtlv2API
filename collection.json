@@ -22,6 +22,22 @@
       "value": ""
     },
     {
+      "key": "starterPublicId",
+      "value": ""
+    },
+    {
+      "key": "starterEmailToken",
+      "value": ""
+    },
+    {
+      "key": "starterEmail",
+      "value": ""
+    },
+    {
+      "key": "starterSlug",
+      "value": ""
+    },
+    {
       "key": "activityLogsIdentifier",
       "value": "1"
     },
@@ -210,6 +226,108 @@
               ],
               "path": [
                 "health"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "Starter",
+      "description": "Create attempts SMTP delivery immediately. emailSent means SMTP accepted, not inbox delivery. Access exchanges the email fragment token once; keep the cookie jar enabled.",
+      "item": [
+        {
+          "name": "Create Starter Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/starter/cards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter",
+                "cards"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locale\": \"id\",\n  \"contact\": {\n    \"fullName\": \"Test Starter\",\n    \"jobTitle\": \"\",\n    \"organization\": \"\",\n    \"officePhone\": \"021123456\",\n    \"mobilePhone\": \"08123456789\",\n    \"email\": \"{{starterEmail}}\",\n    \"websiteUrl\": \"https://example.com\",\n    \"addressText\": \"Jakarta\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Open Starter Email Access",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/starter/access",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter",
+                "access"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publicId\": \"{{starterPublicId}}\",\n  \"token\": \"{{starterEmailToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Read Public Starter Card",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/cards/{{starterSlug}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "public",
+                "cards",
+                "{{starterSlug}}"
               ]
             },
             "description": ""

@@ -12,6 +12,7 @@ const silentLogger: Logger = { info: () => undefined, error: () => undefined };
 const card = { publicId: '7fe91d39-c2a8-4b29-bc1d-b5304c7bfc61', slug: 'aBcDeFg', planCode: 'starter' as const, themeCode: 'starter-clean', locale: 'id' as const, status: 'published', canonicalUrl: 'https://kartunamadigital.id/aBcDeFg', qrImageUrl: '/api/v1/public/cards/aBcDeFg/qr', contact: { fullName: 'Starter', jobTitle: '', organization: '', officePhone: '021', mobilePhone: '0812', email: 'starter@example.com', websiteUrl: 'https://example.com', addressText: 'Jakarta' } };
 const service = {
   create: async () => ({ card, manageToken: 'manage-value', csrfToken: 'csrf-value' }),
+  openAccess: async () => ({ card, manageToken: 'email-manage', csrfToken: 'email-csrf' }),
   update: async () => ({ card, manageToken: 'rotated-manage', csrfToken: 'rotated-csrf' }),
   claim: async () => ({ card, csrfToken: 'access-csrf' }),
 } as unknown as StarterService;
@@ -41,6 +42,16 @@ test('Starter create exposes card data but keeps manage credential in HttpOnly c
 test('Starter update requires both manage and CSRF credentials', async () => {
   const response = await call('PUT', `/api/v1/starter/cards/${card.publicId}`, { contact: card.contact }, { cookie: 'starter_manage=manage-value' });
   assert.equal(response.status, 403);
+});
+
+test('Starter email exchange sets HttpOnly credentials without returning the token', async () => {
+  const response = await call('POST', '/api/v1/starter/access', { publicId: card.publicId, token: 'email-link-token' });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.ok(response.headers.getSetCookie().some(value => value.startsWith('starter_manage=') && value.includes('HttpOnly')));
+  assert.doesNotMatch(await response.text(), /email-manage|email-link-token/);
+  const invalid = await call('POST', '/api/v1/starter/access', { publicId: card.publicId });
+  assert.equal(invalid.status, 422);
 });
 
 test('Starter claim requires access and manage cookies', async () => {

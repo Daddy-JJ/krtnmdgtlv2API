@@ -7,6 +7,7 @@ import type { CsrfTokenService } from '../../../shared/security/csrf-token.ts';
 import type { OpaqueTokenService } from '../../../shared/security/opaque-token.ts';
 import type { StarterCardRecord, StarterRepository } from '../repositories/starter-repository.ts';
 import type { StarterSlugGenerator } from './starter-slug-generator.ts';
+import type { StarterEmailToken } from './starter-email-token.ts';
 
 export type StarterCardResponse = Readonly<{
   publicId: string;
@@ -29,8 +30,9 @@ export class StarterService {
   readonly #accessTokens: Rs256AccessTokenService;
   readonly #appUrl: string;
   readonly #requireHttpsUrls: boolean;
+  readonly #email: { tokens: StarterEmailToken; sendNotification(email: string, subject: string, text: string): Promise<void> } | undefined;
 
-  constructor(dependencies: { repository: StarterRepository; rateLimiter: RateLimiter; slugs: StarterSlugGenerator; tokens: OpaqueTokenService; csrf: CsrfTokenService; accessTokens: Rs256AccessTokenService; appUrl: string; requireHttpsUrls?: boolean }) {
+  constructor(dependencies: { repository: StarterRepository; rateLimiter: RateLimiter; slugs: StarterSlugGenerator; tokens: OpaqueTokenService; csrf: CsrfTokenService; accessTokens: Rs256AccessTokenService; appUrl: string; requireHttpsUrls?: boolean; email?: { tokens: StarterEmailToken; sendNotification(email: string, subject: string, text: string): Promise<void> } }) {
     this.#repository = dependencies.repository;
     this.#rateLimiter = dependencies.rateLimiter;
     this.#slugs = dependencies.slugs;
@@ -39,9 +41,10 @@ export class StarterService {
     this.#accessTokens = dependencies.accessTokens;
     this.#appUrl = dependencies.appUrl.replace(/\/$/, '');
     this.#requireHttpsUrls = dependencies.requireHttpsUrls ?? false;
+    this.#email = dependencies.email;
   }
 
-  async create(data: StarterCardInput, clientKey: string): Promise<{ card: StarterCardResponse; manageToken: string; csrfToken: string }> {
+  async create(data: StarterCardInput, clientKey: string): Promise<{ card: StarterCardResponse & { emailSent: boolean }; manageToken: string; csrfToken: string }> {
     this.#validateUrls(data);
     if (!await this.#rateLimiter.consume('starter-create', clientKey, 10, 3600)) throw new AppError(429, 'RATE_LIMITED', 'Too many requests.');
     for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -52,12 +55,39 @@ export class StarterService {
           if (await transaction.slugExists(slug)) return null;
           return transaction.insertStarter({ publicId: randomUUID(), slug, tokenHash: manage.hash, data, now: new Date() });
         });
-        if (created) return { card: this.#response(created), manageToken: manage.plaintext, csrfToken: this.#csrf.issue(`starter:${manage.hash}`) };
+        if (created) {
+          let emailSent = false;
+          if (this.#email) {
+            const token = this.#email.tokens.issue(created.publicId, manage.plaintext);
+            const link = `${this.#appUrl}/starter/manage/?publicId=${encodeURIComponent(created.publicId)}#token=${encodeURIComponent(token)}`;
+            try {
+              await this.#email.sendNotification(created.contact.email, 'Kelola kartu Starter Anda',
+                `Kartu Anda: ${this.#appUrl}/${created.slug}\nKelola kartu: ${link}\nTautan pengelolaan berlaku 24 jam dan hanya dapat digunakan sekali. Jangan bagikan tautan ini.`);
+              emailSent = true;
+            } catch { /* Card creation remains successful when SMTP is unavailable. */ }
+          }
+          return { card: { ...this.#response(created), emailSent }, manageToken: manage.plaintext, csrfToken: this.#csrf.issue(`starter:${manage.hash}`) };
+        }
       } catch (error) {
         if (!this.#duplicate(error)) throw error;
       }
     }
     throw new AppError(503, 'SERVICE_UNAVAILABLE', 'A unique Starter URL could not be allocated.');
+  }
+
+  async openAccess(publicId: string, token: string, clientKey: string) {
+    if (!await this.#rateLimiter.consume('starter-access', clientKey, 30, 3600)) throw new AppError(429, 'RATE_LIMITED', 'Too many requests.');
+    const credential = this.#email?.tokens.verify(publicId, token);
+    if (!credential) throw new AppError(401, 'STARTER_TOKEN_INVALID', 'Starter management link is invalid or expired.');
+    const replacement = this.#tokens.issue();
+    const card = await this.#repository.transaction(async transaction => {
+      const managed = await transaction.findManaged(publicId, this.#tokens.hash(credential));
+      if (!managed) return null;
+      await transaction.rotateManageToken(managed.card.id, managed.tokenId, replacement.hash, new Date());
+      return managed.card;
+    });
+    if (!card) throw new AppError(401, 'STARTER_TOKEN_INVALID', 'Starter management link is invalid or expired.');
+    return { card: this.#response(card), manageToken: replacement.plaintext, csrfToken: this.#csrf.issue(`starter:${replacement.hash}`) };
   }
 
   async update(publicId: string, managePlaintext: string, csrfToken: string, data: StarterCardInput): Promise<{ card: StarterCardResponse; manageToken: string; csrfToken: string }> {

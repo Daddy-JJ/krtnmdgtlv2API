@@ -13,6 +13,7 @@ import { MySqlAccountRepository } from './modules/account/repositories/mysql-acc
 import { createAccountRouter } from './modules/account/routes/account-router.ts';
 import { AccountService } from './modules/account/services/account-service.ts';
 import { CpanelSmtpMailer } from './modules/email/cpanel-smtp-mailer.ts';
+import { StarterEmailToken } from './modules/starter/services/starter-email-token.ts';
 import { CardController } from './modules/cards/controllers/card-controller.ts';
 import { CardCustomizationController } from './modules/cards/controllers/card-customization-controller.ts';
 import { MySqlCardRepository } from './modules/cards/repositories/mysql-card-repository.ts';
@@ -119,6 +120,13 @@ const cookies = new CookiePolicy({
   refreshTtlDays: environment.REFRESH_TOKEN_TTL_DAYS,
   ...(environment.COOKIE_DOMAIN ? { domain: environment.COOKIE_DOMAIN } : {}),
 });
+const starterMailer = new CpanelSmtpMailer({
+  host: environment.MAIL_HOST, port: environment.MAIL_PORT, encryption: environment.MAIL_ENCRYPTION,
+  username: environment.MAIL_USERNAME, password: environment.MAIL_PASSWORD,
+  fromAddress: environment.MAIL_FROM_ADDRESS, fromName: environment.MAIL_FROM_NAME,
+  replyToAddress: environment.MAIL_REPLY_TO_ADDRESS, timeoutSeconds: environment.MAIL_TIMEOUT_SECONDS,
+  verifyPeer: environment.MAIL_VERIFY_PEER,
+});
 const authService = new AuthService({
   repository: new MySqlAuthRepository(pool),
   rateLimiter,
@@ -177,6 +185,13 @@ const app = createApp({
   authRouter: createAuthRouter(new AuthController(authService, cookies)),
   accountRouter: createAccountRouter(new AccountController(new AccountService(new MySqlAccountRepository(pool)), actors)),
   starterRouter: createStarterRouter(new StarterController(new StarterService({
+    email: {
+      tokens: new StarterEmailToken(environment.CSRF_HMAC_KEY),
+      sendNotification: async (email, subject, text) => {
+        if (!environment.MAIL_USERNAME || !environment.MAIL_PASSWORD) throw new Error('SMTP is not configured.');
+        await starterMailer.sendNotification(email, subject, text);
+      },
+    },
     repository: new MySqlStarterRepository(pool),
     rateLimiter,
     slugs: new StarterSlugGenerator(),

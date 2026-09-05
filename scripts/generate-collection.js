@@ -146,10 +146,26 @@ const collection = {
     { key: 'adminEmail', value: 'admin@kartunamadigital.id' },
     { key: 'adminPassword', value: '' },
     { key: 'csrfToken', value: '' },
+    { key: 'starterPublicId', value: '' },
+    { key: 'starterEmailToken', value: '' },
+    { key: 'starterEmail', value: '' },
+    { key: 'starterSlug', value: '' },
     ...identifierVariables,
   ],
   item: [
     { name: 'System', item: [request('Health Check', 'GET', '/health')] },
+    {
+      name: 'Starter',
+      description: 'Create attempts SMTP delivery immediately. emailSent means SMTP accepted, not inbox delivery. Access exchanges the email fragment token once; keep the cookie jar enabled.',
+      item: [
+        request('Create Starter Card', 'POST', '/starter/cards', {
+          body: { locale: 'id', contact: { fullName: 'Test Starter', jobTitle: '', organization: '', officePhone: '021123456', mobilePhone: '08123456789', email: '{{starterEmail}}', websiteUrl: 'https://example.com', addressText: 'Jakarta' } },
+          tests: ["if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"],
+        }),
+        request('Open Starter Email Access', 'POST', '/starter/access', { body: { publicId: '{{starterPublicId}}', token: '{{starterEmailToken}}' } }),
+        request('Read Public Starter Card', 'GET', '/public/cards/{{starterSlug}}'),
+      ],
+    },
     {
       name: 'Authentication',
       item: [
