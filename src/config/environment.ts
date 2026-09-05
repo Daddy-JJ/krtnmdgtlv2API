@@ -17,7 +17,7 @@ const optionalString = z.preprocess(
 const environmentSchema = z.object({
   APP_ENV: z.enum(['local', 'testing', 'staging', 'production']).default('local'),
   APP_DEBUG: booleanValue.default(false),
-  APP_URL: z.url().default('http://localhost:3000'),
+  APP_URL: z.url().default('http://127.0.0.1:8080'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DB_HOST: z.string().min(1).default('127.0.0.1'),
   DB_PORT: z.coerce.number().int().min(1).max(65535).default(3306),

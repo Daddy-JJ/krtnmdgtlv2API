@@ -9,4 +9,4 @@ const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 30
 await mkdir(directory, { recursive: true });
 await writeFile(privatePath, privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600, flag: 'wx' });
 await writeFile(publicPath, publicKey.export({ type: 'spki', format: 'pem' }), { mode: 0o644, flag: 'wx' });
-process.stdout.write('JWT key pair generated in backend/storage/private.\n');
+process.stdout.write('JWT key pair generated in project storage/private.\n');

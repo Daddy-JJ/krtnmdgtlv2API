@@ -90,6 +90,9 @@ import { LandingContentService } from './modules/landing-content/services/landin
 import { AdminMailController } from './modules/admin/controllers/admin-mail-controller.ts';
 import { AdminMailService } from './modules/admin/services/admin-mail-service.ts';
 import { MySqlAdminMailRepository } from './modules/admin/repositories/mysql-admin-mail-repository.ts';
+import { AdminDataController } from './modules/admin-data/controllers/admin-data-controller.ts';
+import { MySqlAdminDataRepository } from './modules/admin-data/repositories/mysql-admin-data-repository.ts';
+import { createAdminDataRouter } from './modules/admin-data/routes/admin-data-router.ts';
 
 const environment = loadEnvironment();
 const pool = createDatabasePool(environment);
@@ -197,6 +200,7 @@ const app = createApp({
   subscriptionRouter:createSubscriptionRouter(paymentController),
   adminRouter:createAdminRouter(new AdminController(new AdminService(new MySqlAdminRepository(pool)),actors,rbac),superAdminController,adminMailController),
   adminLandingContentRouter: createAdminLandingContentRouter(landingContentController),
+  adminDataRouter: createAdminDataRouter(new AdminDataController(new MySqlAdminDataRepository(pool), actors, rbac)),
   resumeRouter:createResumeRouter(resumeController),
   resumeRequestRouter:createResumeRequestRouter(resumeController,resumeFileController),
   adminResumeRouter:createAdminResumeRouter(resumeController,resumeOperationsController),

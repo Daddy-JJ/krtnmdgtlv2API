@@ -1,32 +1,132 @@
-# Backend
+# krtnmdgtlv2API Backend
 
-The backend uses Node.js `>=22.18 <23`, Express 5, strict TypeScript, and MySQL2. Source files run directly on the locked Node 22 runtime with erasable TypeScript syntax; `tsc --noEmit` remains the required static type gate.
-
-## Local setup
-
-1. Copy `.env.example` to `.env`, then set database values and unique local HMAC keys.
-2. Run `npm install` inside `backend/`.
-3. Run `npm run keys:generate` once, then configure untracked `CSRF_HMAC_KEY`, `OTP_HMAC_KEY`, and SMTP credentials.
-4. Run `npm run migrate` and `npm run seed`.
-5. Run `npm start`; the REST base path is `/api/v1`.
-6. Run `npm run qa`. Set `RUN_DB_TESTS=true` for the database integration suite.
-
-For cPanel LiteSpeed Passenger, register the default `app.js` entrypoint with a
-Node.js runtime in the locked `>=22.18 <23` range. The root package is
-intentionally CommonJS so a launcher that hardcodes `require("app.js")` can
-load it; nested `src/`, `scripts/`, and `tests/` package boundaries remain ESM.
-The physical `app.js` bridge dynamically imports the ESM/TypeScript server. If
-the provider cannot run the locked Node 22 baseline, use VPS/reverse proxy
-deployment.
+REST API untuk KartuNamaDigital.id menggunakan Node.js 22, Express 5, strict
+TypeScript, MySQL/MariaDB, dan arsitektur modular monolith.
 
 ## Source of truth
 
-The `KartuNamaDigital-v2/backend/` directory is authoritative for backend source, tests,
-migrations, shared scripts, and dependency policy. The standalone
-`KartuNamaDigital-API` repository is a deployment mirror, not a second
-development source. Its root Passenger bridge and root-relative `.env` loader
-are deployment adapters and must be preserved when synchronizing a release.
-Database dumps and retired CommonJS implementations must never be copied into
-the deployment mirror.
+Folder project yang menjadi acuan tunggal saat ini adalah:
 
-Phase 1M was accepted on 2026-07-18. Auth/Starter, Card, sharing, payment, minimal admin APIs, and `/me` account contract have been implemented through accepted gates. The former PHP/Composer runtime files have been removed; historical implementation evidence remains only in the Phase 1 report and changelog.
+```text
+C:\xampp\htdocs\krtnmdgtlv2API
+```
+
+Seluruh source backend, migration, seeder, test, script operasional,
+dokumentasi, dan collection API harus dibaca serta diubah dari folder ini.
+Tidak ada repository induk, folder backend lama, atau salinan kerja lain yang
+menjadi sumber kode. Salinan pada hosting hanyalah hasil deployment dan
+tidak boleh digunakan sebagai tempat development atau sumber sinkronisasi balik.
+
+Root project dikenali dari `package.json`, `src/`, `database/`, `tests/`, dan
+README ini. Jalankan semua perintah dari root tersebut.
+
+## Topologi lokal
+
+| Komponen | Alamat | Fungsi |
+| --- | --- | --- |
+| Frontend/public app | `http://127.0.0.1:8080` | UI yang berjalan pada proses terpisah |
+| Backend API | `http://127.0.0.1:3000/api/v1` | Express REST API |
+| MySQL/MariaDB | `127.0.0.1:3306` | Database `krtnmdgtlv2` |
+
+Port frontend dan backend sengaja dipisahkan. Port `8080` sudah digunakan
+frontend/PHP lokal; mengarahkan Express ke port tersebut dapat membuat request
+API masuk ke server yang salah dan menghasilkan HTML 404.
+
+## Menjalankan project
+
+Prasyarat: Node.js `>=22.18 <23`, npm, XAMPP MySQL/MariaDB, dan database lokal
+yang dapat diakses oleh user aplikasi.
+
+```powershell
+Set-Location -LiteralPath 'C:\xampp\htdocs\krtnmdgtlv2API'
+npm ci
+npm run keys:generate
+npm run migrate
+npm run seed
+npm run integration:preflight
+npm start
+```
+
+`npm run keys:generate` hanya dijalankan jika key JWT pada `storage/private/`
+belum tersedia. Script sengaja menolak menimpa key yang sudah ada.
+
+Konfigurasi lokal berada di `.env` dan tidak boleh di-commit. Template aman
+tersedia di `.env.example`.
+
+## Quality assurance
+
+```powershell
+npm run typecheck
+npm test
+npm audit --audit-level=high
+npm run integration:preflight
+npm run test:db
+```
+
+`npm run test:db` bersifat destruktif terhadap database test. Runner hanya mau
+berjalan jika `TEST_DB_DATABASE` berbeda dari database utama dan namanya
+berakhiran `_test`.
+
+Ringkasan command:
+
+- `npm run qa`: typecheck, unit/HTTP tests, dan dependency audit.
+- `npm run qa:integration`: preflight lokal dan integration test database.
+- `npm run migrate:status`: memeriksa migration tanpa mengubah database.
+- `npm run collection:generate`: membuat ulang collection dari schema aktual.
+- `npm run hosting:preflight`: memeriksa baseline runtime hosting.
+
+## API dan collection
+
+Health check:
+
+```text
+GET http://127.0.0.1:3000/api/v1/health
+```
+
+Collection CRUD administratif berada di [collection.json](./collection.json).
+Collection tersebut menggunakan cookie authentication dan CSRF, serta dapat
+diimpor ke Postman. Hoppscotch dapat menggunakan request dan environment yang
+sama selama cookie jar/credentials diaktifkan.
+
+CRUD tabel administratif berada di `/api/v1/admin/data`. Akses baca memerlukan
+permission `data.read`; POST, PUT, dan DELETE memerlukan `data.manage` serta
+header CSRF. Tabel internal `schema_migrations` tidak diekspos dan nilai kolom
+password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
+
+## Dokumentasi utama
+
+- [Development guide](./docs/DEVELOPMENT.md)
+- [Frontend integration](./docs/FRONTEND-INTEGRATION.md)
+- [Startup dan bootloop recovery](./docs/STARTUP-RECOVERY.md)
+- [Dependency policy](./dependency-requirements.md)
+- [Mail template guide](./resources/mail/README.md)
+
+## Struktur project
+
+```text
+database/               migration dan seed data
+docs/                   dokumentasi development dan integrasi
+qa/postman/             collection kontrak domain yang dipertahankan
+resources/              template dan resource runtime
+scripts/                migration, seed, preflight, worker, generator
+src/config/             parsing dan validasi environment
+src/modules/            modul bisnis dan CRUD administratif
+src/shared/             database, HTTP, logging, dan security primitives
+storage/                key/file/cache lokal yang tidak di-commit
+tests/                  unit, HTTP, security, dan integration tests
+collection.json         generated administrative CRUD collection
+app.js                  adapter startup hosting, bukan source aplikasi
+```
+
+## Aturan perubahan
+
+1. Jangan mengedit kode langsung di hosting lalu menyalinnya kembali sebagai SoT.
+2. Jangan mengubah migration yang sudah diterapkan; tambahkan migration baru.
+3. Setiap endpoint baru wajib memiliki validasi, authorization, dan test.
+4. Setelah schema atau CRUD berubah, generate ulang `collection.json`.
+5. Jalankan QA dan preflight sebelum frontend integration atau deployment.
+6. Jangan commit `.env`, key JWT, password, token, dump database, atau upload user.
+
+`app.js` dan `passenger.cjs` tetap tersedia sebagai adapter LiteSpeed/Passenger.
+Keduanya hanya memuat `src/server.ts`; implementasi aplikasi tetap berada di
+folder project canonical ini.

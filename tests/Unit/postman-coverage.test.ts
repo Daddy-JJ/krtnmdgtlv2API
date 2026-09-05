@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 type Item = { item?: Item[]; request?: { method?: string; url?: string | { raw?: string } } };
 
 test('Postman collection covers the deploy-gate CRUD and public contracts', async () => {
-  const monorepoCollection = new URL('../../../qa/postman/KartuNamaDigital-API.postman_collection.json', import.meta.url);
-  const standaloneCollection = new URL('../../qa/postman/KartuNamaDigital-API.postman_collection.json', import.meta.url);
-  const collectionUrl = existsSync(monorepoCollection) ? monorepoCollection : standaloneCollection;
+  const collectionUrl = new URL('../../qa/postman/KartuNamaDigital-API.postman_collection.json', import.meta.url);
   const collection = JSON.parse(await readFile(collectionUrl, 'utf8')) as { item: Item[] };
   const requests: Array<{ method: string; url: string }> = [];
   const visit = (items: Item[]) => items.forEach((item) => {

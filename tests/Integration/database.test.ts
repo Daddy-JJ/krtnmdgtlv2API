@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -33,6 +33,7 @@ import { MySqlPaymentRepository } from '../../src/modules/payments/repositories/
 import { PaymentService } from '../../src/modules/payments/services/payment-service.ts';
 import type { PaymentGatewayPort } from '../../src/modules/payments/gateways/payment-gateway-port.ts';
 import { MySqlAdminRepository } from '../../src/modules/admin/repositories/mysql-admin-repository.ts';
+import { MySqlAdminDataRepository } from '../../src/modules/admin-data/repositories/mysql-admin-data-repository.ts';
 import { AdminService } from '../../src/modules/admin/services/admin-service.ts';
 
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
@@ -72,6 +73,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '005_theme_catalog_names_and_access.sql',
       '006_landing_page_content.sql',
       '007_rbac_authority_reconciliation.sql',
+      '008_admin_data_crud_permissions.sql',
     ]);
     assert.deepEqual(await migrations.migrate(), []);
     assert.equal((await seeds.run()).length, 2);
@@ -324,7 +326,29 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     const [adminAudit] = await pool.execute<Array<RowDataPacket & { count: number }>>(`SELECT COUNT(*) count FROM activity_logs a JOIN users u ON u.id=a.user_id WHERE a.event='admin.plan-updated' AND u.public_id=?`, [claimSession.user.publicId]);
     assert.equal(Number(adminAudit[0]?.count), 1);
 
+    const adminData = new MySqlAdminDataRepository(pool);
+    const adminDataCatalog = await adminData.catalog();
+    assert.equal(adminDataCatalog.length, 43);
+    assert.deepEqual(adminDataCatalog.find((entry) => entry.resource === 'resume_retention_notices')?.primaryKey, ['request_id', 'threshold_days']);
+    const adminDataMarker = `integration-${claimSession.user.publicId}`;
+    const createdAdminData = await adminData.create('auth_rate_limits', {
+      bucket_hash: createHash('sha256').update(adminDataMarker).digest('hex'),
+      action: adminDataMarker,
+      hits: 1,
+      window_started_at: '2026-09-01 00:00:00',
+      expires_at: '2026-09-01 01:00:00',
+    }, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker });
+    assert.equal(Object.hasOwn(createdAdminData, 'bucket_hash'), false);
+    const adminDataIdentifier = String(createdAdminData.id);
+    assert.equal(Number((await adminData.update('auth_rate_limits', adminDataIdentifier, { hits: 2 }, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker })).hits), 2);
+    assert.equal((await adminData.list('auth_rate_limits', { page: 1, limit: 10, order: 'desc', filters: { action: adminDataMarker } })).pagination.total, 1);
+    await adminData.delete('auth_rate_limits', adminDataIdentifier, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker });
+    await assert.rejects(() => adminData.get('auth_rate_limits', adminDataIdentifier));
+
     assert.deepEqual(await migrations.rollbackLastBatch(), [
+      '008_admin_data_crud_permissions.sql',
+      '007_rbac_authority_reconciliation.sql',
+      '006_landing_page_content.sql',
       '005_theme_catalog_names_and_access.sql',
       '005_annual_subscription_term.sql',
       '004_user_feedback.sql',
@@ -341,6 +365,9 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '004_user_feedback.sql',
       '005_annual_subscription_term.sql',
       '005_theme_catalog_names_and_access.sql',
+      '006_landing_page_content.sql',
+      '007_rbac_authority_reconciliation.sql',
+      '008_admin_data_crud_permissions.sql',
     ]);
     assert.equal((await seeds.run()).length, 2);
   } finally {

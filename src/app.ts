@@ -34,6 +34,7 @@ export type AppDependencies = Readonly<{
   feedbackRouter?:Router;
   publicLandingContentRouter?: Router;
   adminLandingContentRouter?: Router;
+  adminDataRouter?: Router;
 }>;
 
 export function createApp(dependencies: AppDependencies): Express {
@@ -91,6 +92,7 @@ export function createApp(dependencies: AppDependencies): Express {
   if(dependencies.subscriptionRouter)app.use('/api/v1/subscriptions',dependencies.subscriptionRouter);
   if(dependencies.adminRouter)app.use('/api/v1/admin',dependencies.adminRouter);
   if (dependencies.adminLandingContentRouter) app.use('/api/v1/admin', dependencies.adminLandingContentRouter);
+  if (dependencies.adminDataRouter) app.use('/api/v1/admin/data', dependencies.adminDataRouter);
   if(dependencies.resumeRouter)app.use('/api/v1/resume-service',dependencies.resumeRouter);
   if(dependencies.resumeRequestRouter)app.use('/api/v1/resume-requests',dependencies.resumeRequestRouter);
   if(dependencies.adminResumeRouter)app.use('/api/v1/admin/resume-requests',dependencies.adminResumeRouter);
