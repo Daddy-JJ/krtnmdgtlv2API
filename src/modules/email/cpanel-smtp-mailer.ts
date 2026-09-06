@@ -67,4 +67,8 @@ export class CpanelSmtpMailer implements MailerPort {
       text,
     });
   }
+
+  async sendRendered(email:string,subject:string,text:string,html:string):Promise<void>{
+    await this.#transporter.sendMail({from:this.#from,replyTo:this.#replyTo,to:email,subject,text,html});
+  }
 }

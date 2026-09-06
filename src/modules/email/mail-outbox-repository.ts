@@ -1,6 +1,6 @@
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 
-export type PasswordResetJob = Readonly<{ id: number; userId: number; email: string; attempts: number; maxAttempts: number }>;
+export type PasswordResetJob = Readonly<{ id: number; userId: number; email: string; attempts: number; maxAttempts: number; templateVersion:number|null }>;
 export type ResumeMailJob=PasswordResetJob&Readonly<{templateKey:string;subject:string;payloadText:string|null}>;
 
 export class MySqlMailOutboxRepository {
@@ -11,14 +11,14 @@ export class MySqlMailOutboxRepository {
     const connection = await this.#pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [rows] = await connection.execute<Array<RowDataPacket & { id: number; user_id: number; recipient_email: string; attempts: number; max_attempts: number }>>(`SELECT id, user_id, recipient_email, attempts, max_attempts
+      const [rows] = await connection.execute<Array<RowDataPacket & { id: number; user_id: number; recipient_email: string; attempts: number; max_attempts: number;template_version:number|null }>>(`SELECT id, user_id, recipient_email, attempts, max_attempts,template_version
         FROM mail_outbox WHERE template_key = 'auth.password-reset' AND status = 'queued' AND available_at <= ?
         ORDER BY priority ASC, id ASC LIMIT 1 FOR UPDATE`, [now]);
       const row = rows[0];
       if (!row) { await connection.commit(); return null; }
       await connection.execute("UPDATE mail_outbox SET status = 'processing', locked_at = ?, updated_at = ? WHERE id = ?", [now, now, row.id]);
       await connection.commit();
-      return { id: row.id, userId: row.user_id, email: row.recipient_email, attempts: row.attempts, maxAttempts: row.max_attempts };
+      return { id: row.id, userId: row.user_id, email: row.recipient_email, attempts: row.attempts, maxAttempts: row.max_attempts,templateVersion:row.template_version===null?null:Number(row.template_version) };
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -29,12 +29,12 @@ export class MySqlMailOutboxRepository {
     const connection=await this.#pool.getConnection();
     try{
       await connection.beginTransaction();
-      const[rows]=await connection.execute<Array<RowDataPacket&{id:number;user_id:number;recipient_email:string;attempts:number;max_attempts:number;template_key:string;subject:string;payload_text:string|null}>>(`SELECT id,user_id,recipient_email,attempts,max_attempts,template_key,subject,payload_text FROM mail_outbox WHERE template_key LIKE 'resume.%' AND status='queued' AND available_at<=? ORDER BY priority ASC,id ASC LIMIT 1 FOR UPDATE`,[now]);
+      const[rows]=await connection.execute<Array<RowDataPacket&{id:number;user_id:number;recipient_email:string;attempts:number;max_attempts:number;template_key:string;subject:string;payload_text:string|null;template_version:number|null}>>(`SELECT id,user_id,recipient_email,attempts,max_attempts,template_key,subject,payload_text,template_version FROM mail_outbox WHERE template_key LIKE 'resume.%' AND status='queued' AND available_at<=? ORDER BY priority ASC,id ASC LIMIT 1 FOR UPDATE`,[now]);
       const row=rows[0];
       if(!row){await connection.commit();return null;}
       await connection.execute(`UPDATE mail_outbox SET status='processing',locked_at=?,updated_at=? WHERE id=?`,[now,now,row.id]);
       await connection.commit();
-      return{id:row.id,userId:row.user_id,email:row.recipient_email,attempts:row.attempts,maxAttempts:row.max_attempts,templateKey:row.template_key,subject:row.subject,payloadText:row.payload_text};
+      return{id:row.id,userId:row.user_id,email:row.recipient_email,attempts:row.attempts,maxAttempts:row.max_attempts,templateVersion:row.template_version===null?null:Number(row.template_version),templateKey:row.template_key,subject:row.subject,payloadText:row.payload_text};
     }catch(error){await connection.rollback();throw error;}finally{connection.release();}
   }
 

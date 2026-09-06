@@ -94,6 +94,11 @@ import { MySqlAdminMailRepository } from './modules/admin/repositories/mysql-adm
 import { AdminDataController } from './modules/admin-data/controllers/admin-data-controller.ts';
 import { MySqlAdminDataRepository } from './modules/admin-data/repositories/mysql-admin-data-repository.ts';
 import { createAdminDataRouter } from './modules/admin-data/routes/admin-data-router.ts';
+import { MySqlEmailTemplateRepository } from './modules/email/templates/mysql-email-template-repository.ts';
+import { EmailTemplateDelivery } from './modules/email/templates/email-template-delivery.ts';
+import { EmailTemplateAdminService } from './modules/admin/services/email-template-admin-service.ts';
+import { EmailTemplateAdminController } from './modules/admin/controllers/email-template-admin-controller.ts';
+import { defaults, type TemplateKey } from './modules/email/templates/template-content.ts';
 
 const environment = loadEnvironment();
 const pool = createDatabasePool(environment);
@@ -127,6 +132,9 @@ const starterMailer = new CpanelSmtpMailer({
   replyToAddress: environment.MAIL_REPLY_TO_ADDRESS, timeoutSeconds: environment.MAIL_TIMEOUT_SECONDS,
   verifyPeer: environment.MAIL_VERIFY_PEER,
 });
+const emailTemplateRepository=new MySqlEmailTemplateRepository(pool);
+const emailTemplateSource=environment.EMAIL_TEMPLATES_ENABLED?emailTemplateRepository:{published:async(key:TemplateKey)=>({content:defaults(key),version:null})};
+const emailTemplateDelivery=new EmailTemplateDelivery({repository:emailTemplateSource,mailer:starterMailer,appUrl:environment.APP_URL});
 const authService = new AuthService({
   repository: new MySqlAuthRepository(pool),
   rateLimiter,
@@ -135,18 +143,10 @@ const authService = new AuthService({
   otpCodes: new OtpCodeService(environment.OTP_HMAC_KEY),
   accessTokens,
   csrf: csrfTokens,
-  mailer: new CpanelSmtpMailer({
-    host: environment.MAIL_HOST,
-    port: environment.MAIL_PORT,
-    encryption: environment.MAIL_ENCRYPTION,
-    username: environment.MAIL_USERNAME,
-    password: environment.MAIL_PASSWORD,
-    fromAddress: environment.MAIL_FROM_ADDRESS,
-    fromName: environment.MAIL_FROM_NAME,
-    replyToAddress: environment.MAIL_REPLY_TO_ADDRESS,
-    timeoutSeconds: environment.MAIL_TIMEOUT_SECONDS,
-    verifyPeer: environment.MAIL_VERIFY_PEER,
-  }),
+  mailer:{
+    sendRegistrationOtp:async(email,code,expiryMinutes)=>{await emailTemplateDelivery.send('auth.registration-otp',email,{code,expiryMinutes});},
+    sendPasswordReset:async(email,resetUrl)=>{await emailTemplateDelivery.send('auth.password-reset',email,{resetUrl});},
+  },
   config: {
     accessTtlSeconds: environment.ACCESS_TOKEN_TTL_SECONDS,
     refreshTtlDays: environment.REFRESH_TOKEN_TTL_DAYS,
@@ -167,6 +167,7 @@ const resumeFileController=new ResumeFileController(new ResumeFileService(pool,n
 const resumeOperationsController=new ResumeOperationsController(new ResumeOperationsService(pool,rbac),actors);
 const superAdminController=new SuperAdminController(new SuperAdminService(new MySqlSuperAdminRepository(pool),rbac),actors,rbac);
 const adminMailController=new AdminMailController(new AdminMailService(new MySqlAdminMailRepository(pool),rbac),actors,rbac);
+const emailTemplateAdminController=environment.EMAIL_TEMPLATES_ENABLED?new EmailTemplateAdminController(new EmailTemplateAdminService({repository:emailTemplateRepository,rbac,rateLimiter,appUrl:environment.APP_URL}),actors):undefined;
 const customizationController = new CardCustomizationController(new CardCustomizationService({repository:cardRepository,slugs:new CustomSlugService(),capabilities:new PlanCapabilityService(new MySqlPlanCapabilityReader(pool)),appUrl:environment.APP_URL}),actors);
 const capabilities=new PlanCapabilityService(new MySqlPlanCapabilityReader(pool));
 const contentRepository=new MySqlCardContentRepository(pool);
@@ -187,9 +188,9 @@ const app = createApp({
   starterRouter: createStarterRouter(new StarterController(new StarterService({
     email: {
       tokens: new StarterEmailToken(environment.CSRF_HMAC_KEY),
-      sendNotification: async (email, subject, text) => {
+      sendManagement: async (email,values) => {
         if (!environment.MAIL_USERNAME || !environment.MAIL_PASSWORD) throw new Error('SMTP is not configured.');
-        await starterMailer.sendNotification(email, subject, text);
+        await emailTemplateDelivery.send('starter.management',email,values);
       },
     },
     repository: new MySqlStarterRepository(pool),
@@ -213,7 +214,7 @@ const app = createApp({
   publicLandingContentRouter: createPublicLandingContentRouter(landingContentController),
   paymentRouter:createPaymentRouter(paymentController),
   subscriptionRouter:createSubscriptionRouter(paymentController),
-  adminRouter:createAdminRouter(new AdminController(new AdminService(new MySqlAdminRepository(pool)),actors,rbac),superAdminController,adminMailController),
+  adminRouter:createAdminRouter(new AdminController(new AdminService(new MySqlAdminRepository(pool)),actors,rbac),superAdminController,adminMailController,emailTemplateAdminController),
   adminLandingContentRouter: createAdminLandingContentRouter(landingContentController),
   adminDataRouter: createAdminDataRouter(new AdminDataController(new MySqlAdminDataRepository(pool), actors, rbac)),
   resumeRouter:createResumeRouter(resumeController),

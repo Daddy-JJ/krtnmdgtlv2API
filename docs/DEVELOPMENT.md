@@ -54,6 +54,8 @@ Kelompok konfigurasi utama:
 - `CORS_ALLOWED_ORIGINS`: exact origin frontend, tanpa wildcard.
 - `JWT_*`, `CSRF_HMAC_KEY`, `OTP_HMAC_KEY`: security secrets lokal.
 - `MIDTRANS_*` dan `MAIL_*`: integrasi eksternal yang dapat dinonaktifkan lokal.
+- `EMAIL_TEMPLATES_ENABLED`: default `false`; set `true` only after migration
+  010 is applied and verified. See `EMAIL-TEMPLATES.md`.
 
 `.env` adalah file lokal dan diabaikan Git. `.env.example` hanya berisi struktur
 serta nilai contoh yang tidak rahasia.

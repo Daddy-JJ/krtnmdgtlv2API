@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { createHash, generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID } from 'node:crypto';
+import { verifyResumeRoleMerge } from './resume-role-merge.ts';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -35,6 +36,8 @@ import type { PaymentGatewayPort } from '../../src/modules/payments/gateways/pay
 import { MySqlAdminRepository } from '../../src/modules/admin/repositories/mysql-admin-repository.ts';
 import { MySqlAdminDataRepository } from '../../src/modules/admin-data/repositories/mysql-admin-data-repository.ts';
 import { AdminService } from '../../src/modules/admin/services/admin-service.ts';
+import { MySqlEmailTemplateRepository } from '../../src/modules/email/templates/mysql-email-template-repository.ts';
+import { defaults } from '../../src/modules/email/templates/template-content.ts';
 
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
 
@@ -74,8 +77,11 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '006_landing_page_content.sql',
       '007_rbac_authority_reconciliation.sql',
       '008_admin_data_crud_permissions.sql',
+      '009_merge_resume_reviewer_role.sql',
+      '010_email_templates.sql',
     ]);
     assert.deepEqual(await migrations.migrate(), []);
+    await verifyResumeRoleMerge(pool);
     assert.equal((await seeds.run()).length, 2);
 
     for (const [table, count] of [['plans', 3], ['plan_features', 33], ['themes', 10], ['plan_theme_access', 14]] as const) {
@@ -147,6 +153,8 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
 
     const resetSession = await auth.login(email, password, 'integration-client');
     await auth.forgotPassword(email, 'integration-client');
+    const [pinnedReset]=await pool.execute<Array<RowDataPacket&{template_version:number|null}>>("SELECT template_version FROM mail_outbox WHERE template_key='auth.password-reset' ORDER BY id DESC LIMIT 1");
+    assert.equal(Number(pinnedReset[0]?.template_version),0);
     const resetWorker = new PasswordResetMailWorker({ outbox: new MySqlMailOutboxRepository(pool), auth: new MySqlAuthRepository(pool), tokens: new OpaqueTokenService(), mailer, appUrl: 'https://kartunamadigital.id' });
     assert.equal(await resetWorker.runOnce(), true);
     const resetUrl = new URL(delivered.resetUrl ?? '');
@@ -158,6 +166,16 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     await assert.rejects(() => auth.login(email, password, 'integration-client'));
     const claimSession = await auth.login(email, 'phase2b-new-password', 'integration-client');
     assert.equal(claimSession.user.email, email);
+    const emailTemplates=new MySqlEmailTemplateRepository(pool),starterDraft=await emailTemplates.detail('starter.management');
+    const savedDraft=await emailTemplates.saveDraft(claimSession.user.publicId,'starter.management',starterDraft.draftRevision,{...defaults('starter.management'),heading:'Selamat datang di integration test'});
+    const publishKey=randomUUID(),templatePublished=await emailTemplates.publish(claimSession.user.publicId,'starter.management',savedDraft.draftRevision,null,'Publish template for integration test',publishKey,'integration-request');
+    assert.equal(templatePublished.publishedVersion,1);
+    assert.equal((await emailTemplates.published('starter.management')).content.heading,'Selamat datang di integration test');
+    assert.equal((await emailTemplates.published('starter.management',0)).content.heading,defaults('starter.management').heading);
+    const testJob=await emailTemplates.enqueueTest(claimSession.user.publicId,'starter.management',savedDraft.draftRevision,randomUUID(),'integration-request');
+    assert.equal(testJob.status,'queued');
+    const claimedTest=await emailTemplates.claimTest();assert.equal(claimedTest?.testId,testJob.testId);
+    await emailTemplates.finishTest(testJob.testId,'sent');assert.equal((await emailTemplates.testStatus(claimSession.user.publicId,'starter.management',testJob.testId)).status,'sent');
 
     const [secretRows] = await pool.execute<Array<RowDataPacket & { password_hash: string; code_hash: string | null; refresh_hash: string | null; reset_hash: string | null }>>(`SELECT
       u.password_hash,
@@ -346,6 +364,8 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     await assert.rejects(() => adminData.get('auth_rate_limits', adminDataIdentifier));
 
     assert.deepEqual(await migrations.rollbackLastBatch(), [
+      '010_email_templates.sql',
+      '009_merge_resume_reviewer_role.sql',
       '008_admin_data_crud_permissions.sql',
       '007_rbac_authority_reconciliation.sql',
       '006_landing_page_content.sql',
@@ -368,6 +388,8 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '006_landing_page_content.sql',
       '007_rbac_authority_reconciliation.sql',
       '008_admin_data_crud_permissions.sql',
+      '009_merge_resume_reviewer_role.sql',
+      '010_email_templates.sql',
     ]);
     assert.equal((await seeds.run()).length, 2);
   } finally {

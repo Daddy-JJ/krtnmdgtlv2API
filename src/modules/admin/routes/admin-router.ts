@@ -2,8 +2,9 @@ import { Router } from 'express';
 import type { AdminController } from '../controllers/admin-controller.ts';
 import type { SuperAdminController } from '../controllers/super-admin-controller.ts';
 import type { AdminMailController } from '../controllers/admin-mail-controller.ts';
+import type { EmailTemplateAdminController } from '../controllers/email-template-admin-controller.ts';
 
-export function createAdminRouter(controller: AdminController, superAdmin?: SuperAdminController, mail?: AdminMailController): Router {
+export function createAdminRouter(controller: AdminController, superAdmin?: SuperAdminController, mail?: AdminMailController, templates?: EmailTemplateAdminController): Router {
   const router = Router();
   router.get('/plans', controller.plans);
   router.put('/plans/:code', controller.updatePlan);
@@ -26,6 +27,18 @@ export function createAdminRouter(controller: AdminController, superAdmin?: Supe
   if (mail) {
     router.get('/mail/outbox', mail.list);
     router.post('/mail/outbox/:publicId/retry', mail.retry);
+  }
+  if (templates) {
+    router.get('/mail/templates', templates.list);
+    router.get('/mail/templates/:key', templates.detail);
+    router.put('/mail/templates/:key/draft', templates.save);
+    router.post('/mail/templates/:key/preview', templates.preview);
+    router.post('/mail/templates/:key/test-send', templates.testSend);
+    router.get('/mail/templates/:key/test-sends/:testId', templates.testStatus);
+    router.post('/mail/templates/:key/publish', templates.publish);
+    router.get('/mail/templates/:key/versions', templates.versions);
+    router.get('/mail/templates/:key/versions/:version', templates.version);
+    router.post('/mail/templates/:key/restore', templates.restore);
   }
   return router;
 }

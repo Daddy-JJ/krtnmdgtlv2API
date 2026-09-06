@@ -13,7 +13,7 @@ const intervention = z.discriminatedUnion('action', [
   z.object({ action: z.literal('ACTIVATE_USER'), ...confirmed }).strict(),
   z.object({
     action: z.literal('GRANT_ROLE'),
-    roleCode: z.enum(['member', 'cv_specialist', 'resume_quality_reviewer', 'resume_service_admin', 'super_admin']),
+    roleCode: z.enum(['member', 'cv_specialist', 'resume_service_admin', 'super_admin']),
     ...confirmed,
   }).strict(),
   z.object({

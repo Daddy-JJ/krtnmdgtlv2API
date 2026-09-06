@@ -49,7 +49,7 @@ export function createApp(dependencies: AppDependencies): Express {
     if (origin && dependencies.corsAllowedOrigins?.includes(origin)) {
       response.setHeader('Access-Control-Allow-Origin', origin);
       response.setHeader('Access-Control-Allow-Credentials', 'true');
-      response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, X-Request-ID');
+      response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, X-Request-ID, Idempotency-Key');
       response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
       response.append('Vary', 'Origin');
     }

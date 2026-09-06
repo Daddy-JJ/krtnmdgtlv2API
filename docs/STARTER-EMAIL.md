@@ -46,3 +46,9 @@ return the landing page for this path; verify its contents, not only HTTP 200.
 The corresponding backend endpoint is `GET /api/v1/public/cards/{slug}`.
 Frontend notices must check `emailSent === true` explicitly; an absent field
 must never imply successful email delivery.
+
+Starter subject, welcome wording, presentation, and CTA labels now use the
+shared transactional template key `starter.management`. Backend-generated card
+and management URLs plus the 24-hour/one-use security notice remain authoritative.
+Until migration 010 is applied and `EMAIL_TEMPLATES_ENABLED=true`, the validated
+built-in template is used. See `EMAIL-TEMPLATES.md`.

@@ -1,12 +1,13 @@
-import type{CpanelSmtpMailer}from'./cpanel-smtp-mailer.ts';
+import type{EmailTemplateDelivery}from'./templates/email-template-delivery.ts';
+import{keySchema}from'./templates/template-content.ts';
 import type{MySqlMailOutboxRepository}from'./mail-outbox-repository.ts';
 
 export class ResumeNotificationMailWorker{
   readonly #outbox:MySqlMailOutboxRepository;
-  readonly #mailer:CpanelSmtpMailer;
+  readonly #delivery:EmailTemplateDelivery;
   readonly #appUrl:string;
-  constructor(dependencies:{outbox:MySqlMailOutboxRepository;mailer:CpanelSmtpMailer;appUrl:string}){
-    this.#outbox=dependencies.outbox;this.#mailer=dependencies.mailer;this.#appUrl=dependencies.appUrl;
+  constructor(dependencies:{outbox:MySqlMailOutboxRepository;delivery:EmailTemplateDelivery;appUrl:string}){
+    this.#outbox=dependencies.outbox;this.#delivery=dependencies.delivery;this.#appUrl=dependencies.appUrl;
   }
   async runOnce():Promise<boolean>{
     const job=await this.#outbox.claimResume();
@@ -14,11 +15,8 @@ export class ResumeNotificationMailWorker{
     try{
       const payload=this.#safePayload(job.payloadText);
       const requestUrl=`${this.#appUrl}/app/resume-enhancement/request/?id=${encodeURIComponent(payload.requestPublicId??'')}`;
-      const expiry=payload.retentionExpiresAt?new Date(payload.retentionExpiresAt).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'}):null;
-      const text=job.templateKey==='resume.completed'
-        ?`Resume Enhancement Anda sudah siap. Unduh melalui member area: ${requestUrl}${expiry?`\nTersedia sampai ${expiry}.`:''}`
-        :`Masa unduh Resume Enhancement Anda segera berakhir${expiry?` pada ${expiry}`:''}. Segera unduh melalui member area: ${requestUrl}`;
-      await this.#mailer.sendNotification(job.email,job.subject,text);
+      const key=keySchema.parse(job.templateKey);
+      await this.#delivery.send(key,job.email,{requestUrl,...(payload.retentionExpiresAt?{retentionExpiresAt:payload.retentionExpiresAt}:{})},job.templateVersion);
       await this.#outbox.markSent(job);
       return true;
     }catch{

@@ -25,7 +25,7 @@ test('email token binds card and deadline and rejects tampering', () => {
 function fixture(failMail = false) {
   let record: StarterCardRecord;
   let activeHash = '';
-  let message = '';
+  let manageUrl = '';
   let inserts = 0;
   const transaction: StarterTransaction = {
     updateStarter: async () => { throw new Error('Unexpected update'); },
@@ -50,13 +50,13 @@ function fixture(failMail = false) {
     slugs: new StarterSlugGenerator(), tokens: new OpaqueTokenService(),
     csrf: new CsrfTokenService('test-csrf-'.repeat(8)), accessTokens: {} as Rs256AccessTokenService,
     appUrl: 'http://127.0.0.1:8080',
-    email: { tokens, sendNotification: async (_email, _subject, text) => {
-      message = text;
+    email: { tokens, sendManagement: async (_email, values) => {
+      manageUrl = values.manageUrl;
       if (failMail) throw new Error('SMTP unavailable');
     } },
   });
   const input = { locale: 'id' as const, contact: { fullName: 'Test', jobTitle: '', organization: '', officePhone: '021', mobilePhone: '0812', email: 'test@example.test', websiteUrl: 'https://example.test', addressText: 'Jakarta' } };
-  return { service, input, message: () => message, inserts: () => inserts };
+  return { service, input, manageUrl: () => manageUrl, inserts: () => inserts };
 }
 
 test('Starter sends a fragment link, exchanges it once and rotates the cookie credential', async () => {
@@ -64,7 +64,7 @@ test('Starter sends a fragment link, exchanges it once and rotates the cookie cr
   const created = await f.service.create(f.input, 'test');
   assert.equal(created.card.emailSent, true);
   assert.equal(f.inserts(), 1);
-  const link = new URL(f.message().split('\n')[1]!.replace('Kelola kartu: ', ''));
+  const link = new URL(f.manageUrl());
   assert.equal(link.pathname, '/starter/manage/');
   const token = new URLSearchParams(link.hash.slice(1)).get('token')!;
   assert.equal(link.searchParams.get('token'), null);

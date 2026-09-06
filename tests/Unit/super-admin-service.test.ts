@@ -60,6 +60,16 @@ test('Super Admin service permits only canonical role grants', async () => {
   assert.equal(writes, 1);
 });
 
+test('retired reviewer role cannot be granted; merged service admin can', async () => {
+  await assert.rejects(service.intervene('actor', 'target', {
+    action: 'GRANT_ROLE', roleCode: 'resume_quality_reviewer', reason: 'retired role test',
+  }, null), { code: 'INVALID_ROLE' });
+  const result = await service.intervene('actor', 'target', {
+    action: 'GRANT_ROLE', roleCode: 'resume_service_admin', reason: 'merged role test',
+  }, null);
+  assert.equal(result.newValue, 'resume_service_admin');
+});
+
 test('system settings remain read-only in router and OpenAPI contracts', async () => {
   const router = await readFile(new URL('../../src/modules/admin/routes/admin-router.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(router, /settings\/:key|updateSetting/);

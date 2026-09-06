@@ -1,7 +1,6 @@
 export const platformRoles = [
   'member',
   'cv_specialist',
-  'resume_quality_reviewer',
   'resume_service_admin',
   'super_admin',
 ] as const;
@@ -13,7 +12,6 @@ export type CompatibleRole = PlatformRole | LegacyRole;
 const rolePriority: Readonly<Record<PlatformRole, number>> = Object.freeze({
   member: 0,
   cv_specialist: 10,
-  resume_quality_reviewer: 20,
   resume_service_admin: 30,
   super_admin: 40,
 });

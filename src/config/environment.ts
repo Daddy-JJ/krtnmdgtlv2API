@@ -62,6 +62,7 @@ const environmentSchema = z.object({
   MAIL_REPLY_TO_ADDRESS: z.string().default('support@kartunamadigital.id'),
   MAIL_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(120).default(15),
   MAIL_VERIFY_PEER: booleanValue.default(true),
+  EMAIL_TEMPLATES_ENABLED: booleanValue.default(false),
 }).superRefine((value, context) => {
   if (value.MIDTRANS_ENABLED) {
     for (const field of ['MIDTRANS_SERVER_KEY', 'MIDTRANS_CLIENT_KEY', 'MIDTRANS_MERCHANT_ID'] as const) {

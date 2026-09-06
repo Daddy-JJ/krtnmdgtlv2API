@@ -5,7 +5,6 @@ import type { Intervention, SuperAdminRepository } from '../repositories/super-a
 const CANONICAL_ROLES = new Set([
   'member',
   'cv_specialist',
-  'resume_quality_reviewer',
   'resume_service_admin',
   'super_admin',
 ]);

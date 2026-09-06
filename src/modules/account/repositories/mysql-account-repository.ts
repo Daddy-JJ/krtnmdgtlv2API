@@ -5,7 +5,7 @@ import { normalizeRoles, primaryRole } from '../../../shared/security/roles.ts';
 type AccountRow = RowDataPacket & { id: number; public_id: string; email: string; active_roles: string | null; permissions: string | null; status: string; email_verified_at: Date | null };
 
 const authorityColumns = `
-  (SELECT GROUP_CONCAT(DISTINCT r.code ORDER BY FIELD(r.code,'super_admin','resume_service_admin','resume_quality_reviewer','cv_specialist','member'))
+  (SELECT GROUP_CONCAT(DISTINCT r.code ORDER BY FIELD(r.code,'super_admin','resume_service_admin','cv_specialist','member'))
    FROM user_roles ur JOIN roles r ON r.id=ur.role_id
    WHERE ur.user_id=u.id AND ur.revoked_at IS NULL) active_roles,
   (SELECT GROUP_CONCAT(DISTINCT p.code ORDER BY p.code)

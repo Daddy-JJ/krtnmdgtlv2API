@@ -101,3 +101,14 @@ test('RBAC reconciliation preserves active assignments and derives the compatibi
   assert.match(sql, /UPDATE users u[\s\S]*user_roles/);
   assert.doesNotMatch(sql, /DELETE FROM user_roles|DROP TABLE/);
 });
+
+test('email template migration is reversible and pins queued mail versions',async()=>{
+  const migration=await loadMigrationFile(new URL('../../database/migrations/010_email_templates.sql',import.meta.url).pathname);
+  for(const table of ['email_templates','email_template_versions','email_template_actions','email_template_tests']){
+    assert.match(migration.upSql,new RegExp(`CREATE TABLE ${table}`));
+    assert.match(migration.downSql,new RegExp(`DROP TABLE ${table}`));
+  }
+  assert.match(migration.upSql,/ADD COLUMN template_version/);
+  assert.match(migration.upSql,/CREATE TRIGGER pin_mail_template_version/);
+  assert.match(migration.downSql,/DROP TRIGGER IF EXISTS pin_mail_template_version/);
+});

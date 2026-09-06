@@ -97,7 +97,9 @@ password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
 
 - [Development guide](./docs/DEVELOPMENT.md)
 - [Frontend integration](./docs/FRONTEND-INTEGRATION.md)
+- [Role and access reference](./docs/ROLES.md)
 - [Starter email and access contract](./docs/STARTER-EMAIL.md)
+- [Transactional email template management](./docs/EMAIL-TEMPLATES.md)
 - [Startup dan bootloop recovery](./docs/STARTUP-RECOVERY.md)
 - [Dependency policy](./dependency-requirements.md)
 - [Mail template guide](./resources/mail/README.md)

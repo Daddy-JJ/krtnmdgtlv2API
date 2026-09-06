@@ -30,9 +30,9 @@ export class StarterService {
   readonly #accessTokens: Rs256AccessTokenService;
   readonly #appUrl: string;
   readonly #requireHttpsUrls: boolean;
-  readonly #email: { tokens: StarterEmailToken; sendNotification(email: string, subject: string, text: string): Promise<void> } | undefined;
+  readonly #email: { tokens: StarterEmailToken; sendManagement(email:string,values:{fullName:string;cardUrl:string;manageUrl:string}):Promise<void> } | undefined;
 
-  constructor(dependencies: { repository: StarterRepository; rateLimiter: RateLimiter; slugs: StarterSlugGenerator; tokens: OpaqueTokenService; csrf: CsrfTokenService; accessTokens: Rs256AccessTokenService; appUrl: string; requireHttpsUrls?: boolean; email?: { tokens: StarterEmailToken; sendNotification(email: string, subject: string, text: string): Promise<void> } }) {
+  constructor(dependencies: { repository: StarterRepository; rateLimiter: RateLimiter; slugs: StarterSlugGenerator; tokens: OpaqueTokenService; csrf: CsrfTokenService; accessTokens: Rs256AccessTokenService; appUrl: string; requireHttpsUrls?: boolean; email?: { tokens: StarterEmailToken; sendManagement(email:string,values:{fullName:string;cardUrl:string;manageUrl:string}):Promise<void> } }) {
     this.#repository = dependencies.repository;
     this.#rateLimiter = dependencies.rateLimiter;
     this.#slugs = dependencies.slugs;
@@ -61,8 +61,7 @@ export class StarterService {
             const token = this.#email.tokens.issue(created.publicId, manage.plaintext);
             const link = `${this.#appUrl}/starter/manage/?publicId=${encodeURIComponent(created.publicId)}#token=${encodeURIComponent(token)}`;
             try {
-              await this.#email.sendNotification(created.contact.email, 'Kelola kartu Starter Anda',
-                `Kartu Anda: ${this.#appUrl}/${created.slug}\nKelola kartu: ${link}\nTautan pengelolaan berlaku 24 jam dan hanya dapat digunakan sekali. Jangan bagikan tautan ini.`);
+              await this.#email.sendManagement(created.contact.email,{fullName:created.contact.fullName,cardUrl:`${this.#appUrl}/${created.slug}`,manageUrl:link});
               emailSent = true;
             } catch { /* Card creation remains successful when SMTP is unavailable. */ }
           }
