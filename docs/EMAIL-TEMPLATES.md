@@ -1,7 +1,8 @@
 # Transactional Email Templates
 
-Status: backend implementation complete in source; migration 010 and runtime
-activation are intentionally not applied by this change.
+Status: backend implementation complete. Migration 010 is applied and
+`EMAIL_TEMPLATES_ENABLED=true` in the local runtime. API restart and guarded
+route verification are complete; mail worker/mailbox UAT was not run.
 
 ## Activation order
 
