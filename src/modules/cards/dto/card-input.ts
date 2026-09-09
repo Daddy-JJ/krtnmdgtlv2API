@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const httpUrl = z.url().max(500).refine((value) => ['http:', 'https:'].includes(new URL(value).protocol), 'Only HTTP(S) URLs are allowed.');
+const optionalWebsiteUrl = z.union([z.literal(''), httpUrl]);
 
 export const cardInputSchema = z.object({
   locale: z.enum(['id', 'en']).default('id'),
@@ -11,7 +12,7 @@ export const cardInputSchema = z.object({
     officePhone: z.string().trim().max(32),
     mobilePhone: z.string().trim().max(32),
     email: z.string().trim().toLowerCase().pipe(z.email().max(190)),
-    websiteUrl: httpUrl,
+    websiteUrl: optionalWebsiteUrl,
     addressText: z.string().trim().max(1000),
     mapsUrl: httpUrl.nullable().optional().transform((value) => value ?? null),
   }).strict(),

@@ -4,6 +4,7 @@ const httpUrl = z.url().max(500).refine((value) => {
   const protocol = new URL(value).protocol;
   return protocol === 'http:' || protocol === 'https:';
 }, 'Only HTTP(S) URLs are allowed.');
+const optionalWebsiteUrl = z.union([z.literal(''), httpUrl]);
 
 export const starterCardInputSchema = z.object({
   locale: z.enum(['id', 'en']).default('id'),
@@ -14,7 +15,7 @@ export const starterCardInputSchema = z.object({
     officePhone: z.string().max(32).trim(),
     mobilePhone: z.string().max(32).trim(),
     email: z.string().trim().toLowerCase().pipe(z.email().max(190)),
-    websiteUrl: httpUrl,
+    websiteUrl: optionalWebsiteUrl,
     addressText: z.string().max(1000).trim(),
   }).strict(),
 }).strict();

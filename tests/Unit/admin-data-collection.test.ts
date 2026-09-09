@@ -5,8 +5,13 @@ import { ADMIN_DATA_RESOURCES } from '../../src/modules/admin-data/resources/adm
 
 type Item = Readonly<{ name: string; item?: readonly Item[]; request?: Readonly<{ method: string; url: Readonly<{ raw: string }> }> }>;
 
-test('generated collection covers CRUD for every administrative data resource', async () => {
-  const collection = JSON.parse(await readFile(new URL('../../collection.json', import.meta.url), 'utf8')) as {
+test('generated collection copies are identical and cover CRUD for every application table', async () => {
+  const [rootSource, docsSource] = await Promise.all([
+    readFile(new URL('../../collection.json', import.meta.url), 'utf8'),
+    readFile(new URL('../../docs/collection.json', import.meta.url), 'utf8'),
+  ]);
+  assert.equal(docsSource, rootSource);
+  const collection = JSON.parse(rootSource) as {
     variable: Array<{ key: string; value: string }>;
     item: Item[];
   };

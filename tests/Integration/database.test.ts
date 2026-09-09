@@ -38,6 +38,7 @@ import { MySqlAdminDataRepository } from '../../src/modules/admin-data/repositor
 import { AdminService } from '../../src/modules/admin/services/admin-service.ts';
 import { MySqlEmailTemplateRepository } from '../../src/modules/email/templates/mysql-email-template-repository.ts';
 import { defaults } from '../../src/modules/email/templates/template-content.ts';
+import { ADMIN_DATA_RESOURCES } from '../../src/modules/admin-data/resources/admin-data-resources.ts';
 
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
 
@@ -57,6 +58,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
   const projectRoot = resolve(backendRoot, '..');
   const migrations = new MigrationRunner(pool, resolve(backendRoot, 'database/migrations'));
   const seeds = new SeedRunner(pool, [resolve(backendRoot, 'database/seeders')]);
+  const dummySeeds = new SeedRunner(pool, [resolve(backendRoot, 'database/development-seeds')]);
 
   try {
     const [timezoneRows] = await pool.query<Array<RowDataPacket & { sessionTimezone: string }>>(
@@ -100,6 +102,12 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       themeAccessRows.map((row) => [row.code, Number(row.count)]),
       [['starter', 1], ['basic', 3], ['pro', 10]],
     );
+
+    const [whatsAppFeatureRows] = await pool.execute<Array<RowDataPacket & { code: string; enabled: number }>>(`SELECT p.code, pf.value_bool enabled
+      FROM plan_features pf JOIN plans p ON p.id=pf.plan_id
+      WHERE pf.feature_key='whatsapp_cta_enabled'
+      ORDER BY FIELD(p.code,'starter','basic','pro')`);
+    assert.deepEqual(whatsAppFeatureRows.map((row) => [row.code, Number(row.enabled)]), [['starter', 1], ['basic', 1], ['pro', 1]]);
 
     const [themeNameRows] = await pool.execute<Array<RowDataPacket & { name: string }>>(
       'SELECT name FROM themes ORDER BY display_order',
@@ -146,6 +154,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     await auth.register(email, password, 'integration-client');
     assert.match(delivered.otp ?? '', /^[0-9]{6}$/);
     await auth.verifyEmailOtp(email, delivered.otp ?? '');
+    await assert.rejects(() => auth.register(email, password, 'integration-client'), { status: 409, code: 'EMAIL_ALREADY_EXISTS' });
     const firstSession = await auth.login(email, password, 'integration-client');
     const rotated = await auth.refresh(firstSession.refreshToken, firstSession.csrfToken);
     await assert.rejects(() => auth.refresh(firstSession.refreshToken, firstSession.csrfToken));
@@ -203,13 +212,19 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       accessTokens: new Rs256AccessTokenService({ privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(), issuer: 'kartunamadigital.id', audience: 'kartunamadigital-web', ttlSeconds: 900 }),
       appUrl: 'https://kartunamadigital.id',
     });
-    const starterInput = { locale: 'id' as const, contact: { fullName: 'Starter Integration', jobTitle: 'Tester', organization: 'KND', officePhone: '', mobilePhone: '081234567890', email: 'starter@example.com', websiteUrl: 'https://example.com', addressText: 'Jakarta' } };
+    const starterInput = { locale: 'id' as const, contact: { fullName: 'Starter Integration', jobTitle: 'Tester', organization: 'KND', officePhone: '', mobilePhone: '081234567890', email: 'starter@example.com', websiteUrl: '', addressText: 'Jakarta' } };
     const createdStarter = await starter.create(starterInput, 'starter-client');
     assert.match(createdStarter.card.slug, /^[a-zA-Z]{7}$/);
     assert.equal(createdStarter.card.themeCode, 'starter-clean');
+    assert.equal(createdStarter.card.contact.websiteUrl, '');
+    assert.deepEqual(await starter.signupContext(createdStarter.card.publicId, createdStarter.manageToken), { email: starterInput.contact.email });
+    await assert.rejects(() => starter.signupContext(createdStarter.card.publicId, 'invalid-manage-token'), { code: 'STARTER_TOKEN_INVALID' });
     const updatedStarter = await starter.update(createdStarter.card.publicId, createdStarter.manageToken, createdStarter.csrfToken, { ...starterInput, contact: { ...starterInput.contact, fullName: 'Starter Updated' } });
     await assert.rejects(() => starter.update(createdStarter.card.publicId, createdStarter.manageToken, createdStarter.csrfToken, starterInput));
     const claimed = await starter.claim(updatedStarter.card.publicId, updatedStarter.manageToken, updatedStarter.csrfToken, claimSession.accessToken);
+    const savedClaimed = await new CardService({ repository: new MySqlCardRepository(pool), appUrl: 'https://kartunamadigital.id', requireHttpsUrls: true }).update(claimSession.user.publicId, claimed.card.publicId, { ...starterInput, contact: { ...starterInput.contact, fullName: 'Mr Arwan' } });
+    assert.equal(savedClaimed.contact.websiteUrl, '');
+    await assert.rejects(() => starter.signupContext(claimed.card.publicId, updatedStarter.manageToken), { code: 'STARTER_TOKEN_INVALID' });
     const [ownerRows] = await pool.execute<Array<RowDataPacket & { user_id: number | null }>>('SELECT user_id FROM cards WHERE public_id = ?', [claimed.card.publicId]);
     assert.ok(ownerRows[0]?.user_id);
     await assert.rejects(() => starter.update(updatedStarter.card.publicId, updatedStarter.manageToken, updatedStarter.csrfToken, starterInput));
@@ -346,7 +361,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
 
     const adminData = new MySqlAdminDataRepository(pool);
     const adminDataCatalog = await adminData.catalog();
-    assert.equal(adminDataCatalog.length, 43);
+    assert.equal(adminDataCatalog.length, ADMIN_DATA_RESOURCES.length);
     assert.deepEqual(adminDataCatalog.find((entry) => entry.resource === 'resume_retention_notices')?.primaryKey, ['request_id', 'threshold_days']);
     const adminDataMarker = `integration-${claimSession.user.publicId}`;
     const createdAdminData = await adminData.create('auth_rate_limits', {
@@ -362,6 +377,13 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.equal((await adminData.list('auth_rate_limits', { page: 1, limit: 10, order: 'desc', filters: { action: adminDataMarker } })).pagination.total, 1);
     await adminData.delete('auth_rate_limits', adminDataIdentifier, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker });
     await assert.rejects(() => adminData.get('auth_rate_limits', adminDataIdentifier));
+
+    assert.deepEqual(await dummySeeds.run(), ['902-all-tables-dummy.sql']);
+    assert.deepEqual(await dummySeeds.run(), ['902-all-tables-dummy.sql']);
+    for (const resource of ADMIN_DATA_RESOURCES) {
+      const [rows] = await pool.query<Array<RowDataPacket & { records: number | string }>>(`SELECT COUNT(*) AS records FROM \`${resource}\``);
+      assert.ok(Number(rows[0]?.records ?? 0) > 0, `${resource} must contain dummy or canonical seed data`);
+    }
 
     assert.deepEqual(await migrations.rollbackLastBatch(), [
       '010_email_templates.sql',

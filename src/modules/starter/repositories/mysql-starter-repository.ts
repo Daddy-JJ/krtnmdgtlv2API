@@ -79,6 +79,16 @@ class MySqlStarterTransaction implements StarterTransaction {
 export class MySqlStarterRepository implements StarterRepository {
   readonly #pool: Pool;
   constructor(pool: Pool) { this.#pool = pool; }
+  async findManagedSignupContext(publicId: string, tokenHash: string): Promise<{ email: string } | null> {
+    const [rows] = await this.#pool.execute<Array<RowDataPacket & { email: string }>>(`SELECT cc.email
+      FROM starter_manage_tokens smt
+      JOIN cards c ON c.id = smt.card_id
+      JOIN card_contacts cc ON cc.card_id = c.id
+      WHERE c.public_id = ? AND smt.token_hash = ? AND smt.revoked_at IS NULL
+      AND c.user_id IS NULL AND c.plan_code = 'starter' AND c.deleted_at IS NULL
+      LIMIT 1`, [publicId, tokenHash]);
+    return rows[0] ? { email: rows[0].email } : null;
+  }
   async transaction<T>(work: (transaction: StarterTransaction) => Promise<T>): Promise<T> {
     const connection = await this.#pool.getConnection();
     try { await connection.beginTransaction(); const result = await work(new MySqlStarterTransaction(connection)); await connection.commit(); return result; }

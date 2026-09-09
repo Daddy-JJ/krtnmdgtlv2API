@@ -62,9 +62,10 @@ export class CardService {
     throw new AppError(503, 'SERVICE_UNAVAILABLE', 'A unique card URL could not be allocated.');
   }
   #validate(data: CardInput): void {
-    if (this.#requireHttpsUrls && !data.contact.websiteUrl.startsWith('https://')) throw new AppError(422, 'VALIDATION_ERROR', 'Validation failed.');
+    if (this.#requireHttpsUrls && data.contact.websiteUrl !== '' && !data.contact.websiteUrl.startsWith('https://')) throw new AppError(422, 'VALIDATION_ERROR', 'Validation failed.');
   }
   async #assertMaps(plan:string){if(!this.#capabilities)throw new AppError(500,'CAPABILITY_CONFIG_INVALID','Plan capability configuration is invalid.');await this.#capabilities.assertEnabled(plan,'maps_enabled');}
-  #response(card: OwnedCard): CardResponse { const { id: _id,logoPath, ...data } = card;const digits=card.contact.mobilePhone.replace(/\D/g,'').replace(/^0/,'62'); return { ...data, canonicalUrl: `${this.#appUrl}/${card.slug}`, qrImageUrl: `/api/v1/public/cards/${encodeURIComponent(card.slug)}/qr`,logoUrl:card.planCode==='pro'&&logoPath?`/api/v1/public/cards/${encodeURIComponent(card.slug)}/logo`:null,whatsappUrl:card.planCode==='pro'&&digits?`https://wa.me/${digits}`:null }; }
+  #response(card: OwnedCard): CardResponse { const { id: _id,logoPath, ...data } = card;return { ...data, canonicalUrl: `${this.#appUrl}/${card.slug}`, qrImageUrl: `/api/v1/public/cards/${encodeURIComponent(card.slug)}/qr`,logoUrl:card.planCode==='pro'&&logoPath?`/api/v1/public/cards/${encodeURIComponent(card.slug)}/logo`:null,whatsappUrl:this.#whatsappUrl(card.contact.mobilePhone) }; }
+  #whatsappUrl(value:string):string|null{const input=value.trim();if(!input||!/^\+?[\d\s()-]+$/.test(input))return null;const digits=input.replace(/\D/g,'');if(input.startsWith('+')&&!digits.startsWith('62'))return null;const international=digits.startsWith('62')?digits:digits.startsWith('0')?`62${digits.slice(1)}`:digits.startsWith('8')?`62${digits}`:'';return /^628\d{7,12}$/.test(international)?`https://wa.me/${international}`:null;}
   #notFound(): AppError { return new AppError(404, 'CARD_NOT_FOUND', 'Card not found.'); }
 }

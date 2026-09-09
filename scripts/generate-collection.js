@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import mysql from 'mysql2/promise';
 import {
@@ -25,9 +25,19 @@ const [columnRows] = await connection.execute(
    WHERE TABLE_SCHEMA=DATABASE()
    ORDER BY TABLE_NAME,ORDINAL_POSITION`,
 );
+const [tableRows] = await connection.execute(
+  `SELECT TABLE_NAME AS tableName FROM INFORMATION_SCHEMA.TABLES
+   WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME`,
+);
 await connection.end();
 
 const allowed = new Set(ADMIN_DATA_RESOURCES);
+const applicationTables = tableRows.map((row) => row.tableName).filter((name) => name !== 'schema_migrations');
+const missing = ADMIN_DATA_RESOURCES.filter((name) => !applicationTables.includes(name));
+const unregistered = applicationTables.filter((name) => !allowed.has(name));
+if (missing.length || unregistered.length) {
+  throw new Error(`CRUD/schema drift. Missing: ${missing.join(', ') || '-'}; unregistered: ${unregistered.join(', ') || '-'}.`);
+}
 const schemas = new Map(ADMIN_DATA_RESOURCES.map((resource) => [resource, []]));
 for (const row of columnRows) {
   if (allowed.has(row.tableName)) schemas.get(row.tableName).push(row);
@@ -159,10 +169,11 @@ const collection = {
       description: 'Create attempts SMTP delivery immediately. emailSent means SMTP accepted, not inbox delivery. Access exchanges the email fragment token once; keep the cookie jar enabled.',
       item: [
         request('Create Starter Card', 'POST', '/starter/cards', {
-          body: { locale: 'id', contact: { fullName: 'Test Starter', jobTitle: '', organization: '', officePhone: '021123456', mobilePhone: '08123456789', email: '{{starterEmail}}', websiteUrl: 'https://example.com', addressText: 'Jakarta' } },
+          body: { locale: 'id', contact: { fullName: 'Test Starter', jobTitle: '', organization: '', officePhone: '021123456', mobilePhone: '08123456789', email: '{{starterEmail}}', websiteUrl: '', addressText: 'Jakarta' } },
           tests: ["if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"],
         }),
         request('Open Starter Email Access', 'POST', '/starter/access', { body: { publicId: '{{starterPublicId}}', token: '{{starterEmailToken}}' } }),
+        request('Read Starter Signup Context', 'GET', '/starter/cards/{{starterPublicId}}/signup-context'),
         request('Read Public Starter Card', 'GET', '/public/cards/{{starterSlug}}'),
       ],
     },
@@ -187,5 +198,10 @@ const collection = {
   ],
 };
 
-await writeFile(resolve(root, 'collection.json'), `${JSON.stringify(collection, null, 2)}\n`);
+const output = `${JSON.stringify(collection, null, 2)}\n`;
+await mkdir(resolve(root, 'docs'), { recursive: true });
+await Promise.all([
+  writeFile(resolve(root, 'collection.json'), output),
+  writeFile(resolve(root, 'docs/collection.json'), output),
+]);
 process.stdout.write(`collection.json generated for ${ADMIN_DATA_RESOURCES.length} administrative resources.\n`);

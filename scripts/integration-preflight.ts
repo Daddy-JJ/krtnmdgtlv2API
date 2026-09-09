@@ -32,7 +32,12 @@ check('jwt_keys_readable', true);
 check('frontend_origin_allowed_by_cors', corsOrigins.includes(frontendOrigin));
 check('frontend_and_api_ports_are_separate', new URL(environment.APP_URL).port !== String(environment.PORT));
 
-const collection = JSON.parse(await readFile(resolve(root, 'collection.json'), 'utf8')) as Collection;
+const [collectionSource, docsCollectionSource] = await Promise.all([
+  readFile(resolve(root, 'collection.json'), 'utf8'),
+  readFile(resolve(root, 'docs/collection.json'), 'utf8'),
+]);
+check('generated_collection_copies_match', collectionSource === docsCollectionSource);
+const collection = JSON.parse(collectionSource) as Collection;
 const collectionBaseUrl = collection.variable.find((entry) => entry.key === 'baseUrl')?.value;
 const adminFolder = collection.item.find((entry) => entry.name === 'Administrative Data CRUD');
 const collectionResources = new Set(adminFolder?.item?.slice(1).map((entry) => entry.name) ?? []);
@@ -55,7 +60,16 @@ try {
     'SELECT TABLE_NAME AS tableName FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE()',
   );
   const tables = new Set(tableRows.map((row) => row.tableName));
-  check('all_admin_resource_tables_exist', ADMIN_DATA_RESOURCES.every((resource) => tables.has(resource)));
+  const applicationTables = [...tables].filter((table) => table !== 'schema_migrations');
+  check('crud_catalog_exactly_matches_application_tables',
+    ADMIN_DATA_RESOURCES.every((resource) => tables.has(resource))
+      && applicationTables.every((table) => ADMIN_DATA_RESOURCES.includes(table as typeof ADMIN_DATA_RESOURCES[number]))
+      && applicationTables.length === ADMIN_DATA_RESOURCES.length);
+
+  const [whatsAppRows] = await pool.query<Array<RowDataPacket & { code: string; enabled: number }>>(`SELECT p.code,pf.value_bool enabled
+    FROM plan_features pf JOIN plans p ON p.id=pf.plan_id
+    WHERE pf.feature_key='whatsapp_cta_enabled' AND p.code IN ('starter','basic','pro')`);
+  check('whatsapp_cta_enabled_for_all_tiers', whatsAppRows.length === 3 && whatsAppRows.every((row) => Number(row.enabled) === 1));
 
   const failures = checks.filter((entry) => !entry.passed).map((entry) => entry.name);
   if (failures.length > 0) throw new Error(`Integration preflight failed: ${failures.join(', ')}.`);

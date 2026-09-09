@@ -106,6 +106,12 @@ export class StarterService {
     return { card: this.#response(updated), manageToken: replacement.plaintext, csrfToken: this.#csrf.issue(`starter:${replacement.hash}`) };
   }
 
+  async signupContext(publicId: string, managePlaintext: string): Promise<{ email: string }> {
+    const context = await this.#repository.findManagedSignupContext(publicId, this.#tokens.hash(managePlaintext));
+    if (!context) throw new AppError(401, 'STARTER_TOKEN_INVALID', 'Starter management access is invalid.');
+    return context;
+  }
+
   async claim(publicId: string, managePlaintext: string, csrfToken: string, accessToken: string): Promise<{ card: StarterCardResponse; csrfToken: string }> {
     const claims = this.#accessTokens.verify(accessToken);
     if (!claims) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required.');
@@ -137,7 +143,7 @@ export class StarterService {
   }
 
   #validateUrls(data: StarterCardInput): void {
-    if (this.#requireHttpsUrls && !data.contact.websiteUrl.startsWith('https://')) {
+    if (this.#requireHttpsUrls && data.contact.websiteUrl !== '' && !data.contact.websiteUrl.startsWith('https://')) {
       throw new AppError(422, 'VALIDATION_ERROR', 'Validation failed.', [{ field: 'contact.websiteUrl', message: 'Production URLs must use HTTPS.' }]);
     }
   }

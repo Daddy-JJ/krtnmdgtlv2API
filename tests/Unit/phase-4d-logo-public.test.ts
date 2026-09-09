@@ -49,8 +49,8 @@ test('logo storage uses opaque keys and rejects traversal', async () => {
   finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('public aggregate applies authoritative limits and hides unpublished catalog', async () => {
-  const repository = { findPublished: async () => card('pro') } as unknown as CardRepository;
+test('public aggregate applies authoritative limits and exposes derived WhatsApp for Starter', async () => {
+  const repository = { findPublished: async () => card('starter') } as unknown as CardRepository;
   const content = {
     listPublishedSocial: async (_slug: string, limit: number) => [{ id: 1, platform: 'linkedin', url: 'https://linkedin.com/in/a', sortOrder: 1 }].slice(0, limit),
     listPublishedCatalog: async (_slug: string, limit: number) => [{ publicId: 'item', title: 'Public', description: null, targetUrl: null, sortOrder: 1, isPublished: true }].slice(0, limit),

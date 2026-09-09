@@ -71,8 +71,13 @@ Ringkasan command:
 
 - `npm run qa`: typecheck, unit/HTTP tests, dan dependency audit.
 - `npm run qa:integration`: preflight lokal dan integration test database.
+- `npm run qa:crud`: generate kontrak lalu memverifikasi schema, collection,
+  seluruh resource CRUD, dan database integration pada database `_test`.
 - `npm run migrate:status`: memeriksa migration tanpa mengubah database.
-- `npm run collection:generate`: membuat ulang collection dari schema aktual.
+- `npm run contracts:generate`: membuat ulang referensi schema dan kedua
+  salinan collection dari database aktual.
+- `npm run seed:dummy-all`: mengisi data dummy idempotent untuk seluruh tabel
+  aplikasi pada database lokal yang dikonfigurasi.
 - `npm run hosting:preflight`: memeriksa baseline runtime hosting.
 
 ## API dan collection
@@ -83,7 +88,8 @@ Health check:
 GET http://127.0.0.1:3000/api/v1/health
 ```
 
-Collection CRUD administratif berada di [collection.json](./collection.json).
+Collection CRUD administratif berada di [collection.json](./collection.json)
+dan salinan dokumentasinya di [docs/collection.json](./docs/collection.json).
 Collection tersebut menggunakan cookie authentication dan CSRF, serta dapat
 diimpor ke Postman. Hoppscotch dapat menggunakan request dan environment yang
 sama selama cookie jar/credentials diaktifkan.
@@ -93,10 +99,16 @@ permission `data.read`; POST, PUT, dan DELETE memerlukan `data.manage` serta
 header CSRF. Tabel internal `schema_migrations` tidak diekspos dan nilai kolom
 password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
 
+Starter signup prefill tersedia melalui read-only
+`GET /api/v1/starter/cards/:publicId/signup-context` setelah pertukaran email
+token. Public-card `whatsappUrl` selalu diturunkan backend dari nomor mobile
+Indonesia yang valid dan tersedia untuk Starter, Basic, serta Pro.
+
 ## Dokumentasi utama
 
 - [Development guide](./docs/DEVELOPMENT.md)
 - [Frontend integration](./docs/FRONTEND-INTEGRATION.md)
+- [CRUD, schema, collection, dan dummy seed QA](./docs/CRUD-QA.md)
 - [Role and access reference](./docs/ROLES.md)
 - [Starter email and access contract](./docs/STARTER-EMAIL.md)
 - [Transactional email template management](./docs/EMAIL-TEMPLATES.md)

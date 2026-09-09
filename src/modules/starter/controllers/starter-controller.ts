@@ -43,6 +43,16 @@ export class StarterController {
     response.json({ success: true, message: 'Starter card updated.', data: result.card });
   };
 
+  signupContext = async (request: Request, response: Response): Promise<void> => {
+    response.set('Cache-Control', 'no-store');
+    const publicId = publicIdSchema.safeParse(request.params.publicId);
+    if (!publicId.success) throw this.#validation(publicId.error.issues);
+    const manage = readCookie(request, 'starter_manage');
+    if (!manage) throw new AppError(401, 'STARTER_TOKEN_INVALID', 'Starter management access is invalid.');
+    const context = await this.#service.signupContext(publicId.data, manage);
+    response.json({ success: true, data: context });
+  };
+
   claim = async (request: Request, response: Response): Promise<void> => {
     const publicId = publicIdSchema.safeParse(request.params.publicId);
     if (!publicId.success) throw this.#validation(publicId.error.issues);

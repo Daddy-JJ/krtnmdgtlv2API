@@ -22,17 +22,17 @@ test('email token binds card and deadline and rejects tampering', () => {
   assert.equal(tokens.verify('card-a', token + 'x', now), null);
 });
 
-function fixture(failMail = false) {
+function fixture(failMail = false, requireHttpsUrls = false) {
   let record: StarterCardRecord;
   let activeHash = '';
   let manageUrl = '';
   let inserts = 0;
   const transaction: StarterTransaction = {
-    updateStarter: async () => { throw new Error('Unexpected update'); },
-    findUser: async () => { throw new Error('Unexpected user lookup'); },
-    userHasCard: async () => { throw new Error('Unexpected ownership lookup'); },
-    claimCard: async () => { throw new Error('Unexpected claim'); },
-    revokeManageTokens: async () => { throw new Error('Unexpected revocation'); },
+    updateStarter: async (_cardId, data) => { record = { ...record, locale: data.locale, contact: data.contact }; },
+    findUser: async () => ({ id: 2, publicId: 'user-id', status: 'active', emailVerifiedAt: new Date() }),
+    userHasCard: async () => false,
+    claimCard: async (_cardId, userId) => { record = { ...record, userId }; },
+    revokeManageTokens: async () => { activeHash = ''; },
     loadCard: async () => record,
     slugExists: async () => false,
     insertStarter: async input => {
@@ -45,11 +45,15 @@ function fixture(failMail = false) {
     rotateManageToken: async (_id, _tokenId, hash) => { activeHash = hash; },
   };
   const service = new StarterService({
-    repository: { transaction: async work => work(transaction) },
+    repository: {
+      transaction: async work => work(transaction),
+      findManagedSignupContext: async (id, hash) => id === record.publicId && hash === activeHash && record.userId === null ? { email: record.contact.email } : null,
+    },
     rateLimiter: { consume: async () => true },
     slugs: new StarterSlugGenerator(), tokens: new OpaqueTokenService(),
-    csrf: new CsrfTokenService('test-csrf-'.repeat(8)), accessTokens: {} as Rs256AccessTokenService,
+    csrf: new CsrfTokenService('test-csrf-'.repeat(8)), accessTokens: { verify: (value: string) => value === 'access' ? { sub: 'user-id', sid: 'session-id' } : null } as Rs256AccessTokenService,
     appUrl: 'http://127.0.0.1:8080',
+    requireHttpsUrls,
     email: { tokens, sendManagement: async (_email, values) => {
       manageUrl = values.manageUrl;
       if (failMail) throw new Error('SMTP unavailable');
@@ -82,4 +86,18 @@ test('SMTP failure preserves the created card and reports emailSent false', asyn
   assert.equal(created.card.status, 'published');
   assert.equal(f.inserts(), 1);
   assert.ok(created.manageToken);
+});
+
+test('Starter without website supports signup context, update, claim, and claimed-context revocation', async () => {
+  const f = fixture(false, true);
+  const input = { ...f.input, contact: { ...f.input.contact, websiteUrl: '' } };
+  const created = await f.service.create(input, 'test');
+  assert.equal(created.card.contact.websiteUrl, '');
+  assert.deepEqual(await f.service.signupContext(created.card.publicId, created.manageToken), { email: input.contact.email });
+  await assert.rejects(f.service.signupContext(created.card.publicId, 'wrong-token'), { code: 'STARTER_TOKEN_INVALID' });
+  const updated = await f.service.update(created.card.publicId, created.manageToken, created.csrfToken, input);
+  assert.equal(updated.card.contact.websiteUrl, '');
+  const claimed = await f.service.claim(updated.card.publicId, updated.manageToken, updated.csrfToken, 'access');
+  assert.equal(claimed.card.contact.websiteUrl, '');
+  await assert.rejects(f.service.signupContext(claimed.card.publicId, updated.manageToken), { code: 'STARTER_TOKEN_INVALID' });
 });

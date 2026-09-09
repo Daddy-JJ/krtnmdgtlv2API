@@ -12,6 +12,41 @@ test('Card DTO rejects plan, slug, theme, logo, and unsafe Maps injection', () =
   }
   assert.equal(cardInputSchema.safeParse({ ...input, contact: { ...input.contact, mapsUrl: 'https://maps.example' } }).success, true);
   assert.equal(cardInputSchema.safeParse({ ...input, contact: { ...input.contact, mapsUrl: 'javascript:alert(1)' } }).success, false);
+  assert.equal(cardInputSchema.safeParse({ ...input, contact: { ...input.contact, websiteUrl: '' } }).success, true);
+  assert.equal(cardInputSchema.safeParse({ ...input, contact: { ...input.contact, websiteUrl: 'ftp://example.com' } }).success, false);
+});
+
+test('claimed card can be saved without a website, including in HTTPS-only production mode', async () => {
+  let savedWebsite = 'not-called';
+  const owned = { id: 1, publicId: 'card-id', slug: 'card-slug', planCode: 'starter' as const, themeCode: 'starter-clean', locale: 'id' as const, status: 'published', contact: { ...input.contact, websiteUrl: '', mapsUrl: null } };
+  const repository = {
+    findOwned: async () => owned,
+    updateOwned: async (_userId: string, _cardId: string, data: { contact: { websiteUrl: string } }) => { savedWebsite = data.contact.websiteUrl; return owned; },
+  } as unknown as CardRepository;
+  const result = await new CardService({ repository, appUrl: 'https://kartunamadigital.id', requireHttpsUrls: true }).update('user-id', 'card-id', { ...input, contact: { ...input.contact, websiteUrl: '' } });
+  assert.equal(savedWebsite, '');
+  assert.equal(result.contact.websiteUrl, '');
+  await assert.rejects(new CardService({ repository, appUrl: 'https://kartunamadigital.id', requireHttpsUrls: true }).update('user-id', 'card-id', { ...input, contact: { ...input.contact, websiteUrl: 'http://example.com' } }), { status: 422, code: 'VALIDATION_ERROR' });
+});
+
+test('WhatsApp CTA is derived from valid Indonesian mobile numbers for every tier', async () => {
+  const cases = [
+    ['081328219697', 'https://wa.me/6281328219697'],
+    ['81328219697', 'https://wa.me/6281328219697'],
+    ['6281328219697', 'https://wa.me/6281328219697'],
+    ['+62 813-2821-(9697)', 'https://wa.me/6281328219697'],
+    ['', null],
+    ['not-a-phone', null],
+    ['0215550188', null],
+  ] as const;
+  for (const planCode of ['starter', 'basic', 'pro'] as const) {
+    for (const [mobilePhone, expected] of cases) {
+      const owned = { id: 1, publicId: 'card-id', slug: 'card-slug', planCode, themeCode: 'theme', locale: 'id' as const, status: 'published', contact: { ...input.contact, mobilePhone, mapsUrl: null } };
+      const repository = { findOwned: async () => owned } as unknown as CardRepository;
+      const result = await new CardService({ repository, appUrl: 'https://kartunamadigital.id' }).get('user-id', 'card-id');
+      assert.equal(result.whatsappUrl, expected, `${planCode}:${mobilePhone}`);
+    }
+  }
 });
 
 test('Card creation fails closed without active Basic/Pro entitlement', async () => {

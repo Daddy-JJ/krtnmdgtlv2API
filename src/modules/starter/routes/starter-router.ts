@@ -5,6 +5,7 @@ export function createStarterRouter(controller: StarterController): Router {
   const router = Router();
   router.post('/cards', controller.create);
   router.post('/access', controller.openAccess);
+  router.get('/cards/:publicId/signup-context', controller.signupContext);
   router.put('/cards/:publicId', controller.update);
   router.post('/cards/:publicId/claim', controller.claim);
   return router;

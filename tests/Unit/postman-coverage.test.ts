@@ -24,6 +24,7 @@ test('Postman collection covers the deploy-gate CRUD and public contracts', asyn
     ['GET', '/social-links'], ['POST', '/social-links'], ['PUT', '/social-links/{{socialLinkId}}'], ['DELETE', '/social-links/{{socialLinkId}}'],
     ['GET', '/catalog-items'], ['POST', '/catalog-items'], ['PUT', '/catalog-items/{{catalogItemId}}'], ['DELETE', '/catalog-items/{{catalogItemId}}'],
     ['GET', '/public/cards/{{publicSlug}}'], ['GET', '/qr'], ['GET', '/vcard'],
+    ['GET', '/starter/cards/{{starterPublicId}}/signup-context'],
     ['POST', '/payments/checkout'], ['GET', '/payments'], ['GET', '/subscriptions/current'],
   ] as const;
 

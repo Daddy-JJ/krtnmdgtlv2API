@@ -16,7 +16,17 @@ export class SeedRunner {
     const completed: string[] = [];
     for (const path of await this.#files()) {
       const sql = await readFile(path, 'utf8');
-      for (const statement of splitSqlStatements(sql)) await this.#pool.query(statement);
+      const statements = splitSqlStatements(sql);
+      for (const [index, statement] of statements.entries()) {
+        try {
+          await this.#pool.query(statement);
+        } catch (error) {
+          throw new Error(
+            `Seed ${basename(path)} failed at statement ${index + 1}: ${statement.slice(0, 160)}`,
+            { cause: error },
+          );
+        }
+      }
       completed.push(basename(path));
     }
     return completed;

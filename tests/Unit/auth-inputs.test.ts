@@ -32,6 +32,7 @@ test('Starter DTO rejects slug/theme injection and unsafe URL protocols', () => 
   };
 
   assert.equal(starterCardInputSchema.safeParse({ contact }).success, true);
+  assert.equal(starterCardInputSchema.safeParse({ contact: { ...contact, websiteUrl: '' } }).success, true);
   assert.equal(starterCardInputSchema.safeParse({ contact, slug: 'owned-by-client' }).success, false);
   assert.equal(starterCardInputSchema.safeParse({ contact: { ...contact, websiteUrl: 'javascript:alert(1)' } }).success, false);
 });

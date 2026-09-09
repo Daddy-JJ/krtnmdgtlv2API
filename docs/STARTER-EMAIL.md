@@ -34,6 +34,23 @@ and uses `Cache-Control: no-store`. Replays and expired/invalid links return 401
 `STARTER_TOKEN_INVALID`; invalid request shape returns 422; throttling returns 429.
 Remove the fragment from browser history after successful exchange.
 
+After exchange, the frontend reads the signup prefill using
+`GET /api/v1/starter/cards/{publicId}/signup-context` with
+`credentials: 'include'`. The endpoint needs no CSRF header because it is
+read-only. It accepts only the active `starter_manage` HttpOnly cookie bound to
+the same unclaimed card, returns only `{ "email": "..." }` inside the standard
+success envelope, and sets `Cache-Control: no-store`. Missing, expired, rotated,
+wrong-card, or post-claim credentials all return the same HTTP 401
+`STARTER_TOKEN_INVALID` response. The email must not be copied into a signup URL
+or Web Storage.
+
+The intended continuation is Signup, OTP verification, then Starter claim.
+`POST /auth/register` returns HTTP 409 `EMAIL_ALREADY_EXISTS` when the address
+already belongs to an account; frontend may then offer Login as the recovery
+path. Login leaves `starter_manage` intact, so the authenticated and verified
+account can still call the existing claim endpoint. Claim remains server-side
+authorized and requires a verified account.
+
 Token rotation also invalidates the original creation browser's management
 cookie; continue claiming the card in the browser that opened the email.
 Claiming or updating the card revokes/rotates the credential and invalidates its
@@ -52,3 +69,9 @@ shared transactional template key `starter.management`. Backend-generated card
 and management URLs plus the 24-hour/one-use security notice remain authoritative.
 Until migration 010 is applied and `EMAIL_TEMPLATES_ENABLED=true`, the validated
 built-in template is used. See `EMAIL-TEMPLATES.md`.
+
+`contact.websiteUrl` is always present in Starter responses. An omitted website
+is stored and returned as an empty string. Non-empty values accept HTTP/HTTPS
+only, and production may require HTTPS. `contact.fullName` remains one required,
+trimmed field with a 150-character maximum; prefixes and single-part names
+need no separate backend fields.

@@ -160,6 +160,29 @@ Frontend pengguna harus memakai endpoint domain seperti `/auth`, `/me`,
 memakai generic CRUD sebagai shortcut untuk fitur end-user karena endpoint
 domain menerapkan ownership dan aturan bisnis yang lebih kuat.
 
+## Starter signup handoff
+
+Setelah `POST /starter/access` berhasil, panggil:
+
+```text
+GET /starter/cards/{publicId}/signup-context
+credentials: include
+```
+
+Gunakan email response sebagai nilai readonly pada Signup dan simpan hanya di
+memory aplikasi, bukan URL atau Web Storage. Response memakai `no-store` dan
+tidak memuat token maupun detail kartu lain. HTTP 401
+`STARTER_TOKEN_INVALID` berarti management context tidak lagi valid. HTTP 409
+`EMAIL_ALREADY_EXISTS` dari `/auth/register` mengaktifkan recovery Login;
+setelah Login, pertahankan `publicId` pada navigation state saat ini lalu panggil
+claim endpoint existing dengan cookie management, autentikasi, dan CSRF terbaru.
+
+`contact.websiteUrl` boleh berupa `""`; frontend jangan menghapus property ini.
+Nilai non-empty harus tetap HTTP(S). `whatsappUrl` pada public-card diturunkan
+backend untuk Starter, Basic, dan Pro dari `contact.mobilePhone` Indonesia yang
+valid; browser tidak boleh mengirim URL WhatsApp. Contoh `081328219697` menjadi
+`https://wa.me/6281328219697`.
+
 Referensi request:
 
 - `collection.json`: CRUD administratif generated.

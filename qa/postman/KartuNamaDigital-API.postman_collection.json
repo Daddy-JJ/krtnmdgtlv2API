@@ -125,12 +125,22 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"contact\": {\n    \"fullName\": \"QA Starter\",\n    \"jobTitle\": \"Tester\",\n    \"organization\": \"KND QA\",\n    \"officePhone\": \"+62215550188\",\n    \"mobilePhone\": \"+6281234567890\",\n    \"email\": \"qa.starter@example.test\",\n    \"websiteUrl\": \"https://example.test\",\n    \"addressText\": \"Jakarta\"\n  }\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"contact\": {\n    \"fullName\": \"QA Starter\",\n    \"jobTitle\": \"Tester\",\n    \"organization\": \"KND QA\",\n    \"officePhone\": \"+62215550188\",\n    \"mobilePhone\": \"+6281234567890\",\n    \"email\": \"qa.starter@example.test\",\n    \"websiteUrl\": \"\",\n    \"addressText\": \"Jakarta\"\n  }\n}" },
             "url": "{{baseUrl}}/starter/cards"
           },
           "event": [{ "listen": "test", "script": { "exec": [
             "if (pm.response.code === 201) { const body = pm.response.json(); pm.environment.set('starterPublicId', body.data.publicId); pm.environment.set('publicSlug', body.data.slug); const csrf = pm.cookies.get('starter_csrf_token'); if (csrf) pm.environment.set('starterCsrfToken', csrf); }",
             "pm.test('manage token is not exposed in JSON', () => pm.expect(pm.response.text()).not.to.match(/manage[_-]?token/i));"
+          ] } }]
+        },
+        {
+          "name": "Read Starter Signup Context",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/starter/cards/{{starterPublicId}}/signup-context"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('signup context is no-store and email-only', () => { const body = pm.response.json(); pm.expect(pm.response.headers.get('Cache-Control')).to.eql('no-store'); pm.expect(Object.keys(body.data)).to.eql(['email']); });"
           ] } }]
         },
         {
@@ -141,7 +151,7 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "X-CSRF-Token", "value": "{{starterCsrfToken}}" }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"contact\": {\n    \"fullName\": \"QA Starter Updated\",\n    \"jobTitle\": \"Tester\",\n    \"organization\": \"KND QA\",\n    \"officePhone\": \"+62215550188\",\n    \"mobilePhone\": \"+6281234567890\",\n    \"email\": \"qa.starter@example.test\",\n    \"websiteUrl\": \"https://example.test\",\n    \"addressText\": \"Jakarta\"\n  }\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"contact\": {\n    \"fullName\": \"QA Starter Updated\",\n    \"jobTitle\": \"Tester\",\n    \"organization\": \"KND QA\",\n    \"officePhone\": \"+62215550188\",\n    \"mobilePhone\": \"+6281234567890\",\n    \"email\": \"qa.starter@example.test\",\n    \"websiteUrl\": \"\",\n    \"addressText\": \"Jakarta\"\n  }\n}" },
             "url": "{{baseUrl}}/starter/cards/{{starterPublicId}}"
           },
           "event": [{ "listen": "test", "script": { "exec": [
@@ -204,7 +214,7 @@
               { "key": "Content-Type", "value": "application/json" },
               { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"locale\": \"id\",\n  \"contact\": {\n    \"fullName\": \"QA User Updated\",\n    \"jobTitle\": \"Tester\",\n    \"organization\": \"KND QA\",\n    \"officePhone\": \"+62215550188\",\n    \"mobilePhone\": \"+6281234567890\",\n    \"email\": \"qa.user@example.test\",\n    \"websiteUrl\": \"https://example.test\",\n    \"addressText\": \"Jakarta\"\n  }\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"locale\": \"id\",\n  \"contact\": {\n    \"fullName\": \"QA User Updated\",\n    \"jobTitle\": \"Tester\",\n    \"organization\": \"KND QA\",\n    \"officePhone\": \"+62215550188\",\n    \"mobilePhone\": \"+6281234567890\",\n    \"email\": \"qa.user@example.test\",\n    \"websiteUrl\": \"\",\n    \"addressText\": \"Jakarta\"\n  }\n}" },
             "url": "{{baseUrl}}/cards/{{cardPublicId}}"
           }
         }
@@ -280,7 +290,7 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/public/cards/{{publicSlug}}" },
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('public aggregate contains bounded content arrays', () => { const data = pm.response.json().data; pm.expect(data.socialLinks).to.be.an('array'); pm.expect(data.catalogItems).to.be.an('array'); });",
-            "pm.test('WhatsApp URL is server-derived for Pro', () => pm.expect(pm.response.json().data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//));"
+            "pm.test('WhatsApp URL is server-derived for every tier', () => pm.expect(pm.response.json().data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//));"
           ] } }]
         },
         {

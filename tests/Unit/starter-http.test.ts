@@ -13,6 +13,7 @@ const card = { publicId: '7fe91d39-c2a8-4b29-bc1d-b5304c7bfc61', slug: 'aBcDeFg'
 const service = {
   create: async () => ({ card, manageToken: 'manage-value', csrfToken: 'csrf-value' }),
   openAccess: async () => ({ card, manageToken: 'email-manage', csrfToken: 'email-csrf' }),
+  signupContext: async () => ({ email: card.contact.email }),
   update: async () => ({ card, manageToken: 'rotated-manage', csrfToken: 'rotated-csrf' }),
   claim: async () => ({ card, csrfToken: 'access-csrf' }),
 } as unknown as StarterService;
@@ -24,7 +25,7 @@ async function call(method: string, path: string, body: unknown, headers: Record
   await new Promise<void>((resolve) => server.once('listening', resolve));
   try {
     const port = (server.address() as AddressInfo).port;
-    return await fetch(`http://127.0.0.1:${port}${path}`, { method, headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+    return await fetch(`http://127.0.0.1:${port}${path}`, { method, headers: { 'content-type': 'application/json', ...headers }, ...(method === 'GET' ? {} : { body: JSON.stringify(body) }) });
   } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 }
 
@@ -52,6 +53,19 @@ test('Starter email exchange sets HttpOnly credentials without returning the tok
   assert.doesNotMatch(await response.text(), /email-manage|email-link-token/);
   const invalid = await call('POST', '/api/v1/starter/access', { publicId: card.publicId });
   assert.equal(invalid.status, 422);
+});
+
+test('Starter signup context requires management cookie and is never cached', async () => {
+  const missing = await call('GET', `/api/v1/starter/cards/${card.publicId}/signup-context`, null);
+  assert.equal(missing.status, 401);
+  assert.equal(missing.headers.get('cache-control'), 'no-store');
+  assert.equal((await missing.json() as { code: string }).code, 'STARTER_TOKEN_INVALID');
+  const response = await call('GET', `/api/v1/starter/cards/${card.publicId}/signup-context`, null, { cookie: 'starter_manage=manage-value' });
+  const body = await response.json() as { data: Record<string, unknown> };
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(body.data, { email: card.contact.email });
+  assert.deepEqual(Object.keys(body.data), ['email']);
 });
 
 test('Starter claim requires access and manage cookies', async () => {

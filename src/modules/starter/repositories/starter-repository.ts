@@ -30,4 +30,5 @@ export interface StarterTransaction {
 
 export interface StarterRepository {
   transaction<T>(work: (transaction: StarterTransaction) => Promise<T>): Promise<T>;
+  findManagedSignupContext(publicId: string, tokenHash: string): Promise<{ email: string } | null>;
 }

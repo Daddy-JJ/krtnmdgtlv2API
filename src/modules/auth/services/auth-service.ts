@@ -49,7 +49,13 @@ export class AuthService {
   async register(email: string, password: string, clientKey: string): Promise<void> {
     await this.#limit('register', `${clientKey}:${email}`, 5, 3600);
     const passwordHash = await this.#passwords.hash(password);
-    const issued = await this.#issueRegistrationOtp(email, passwordHash, true);
+    let issued: string | null;
+    try {
+      issued = await this.#issueRegistrationOtp(email, passwordHash, true);
+    } catch (error) {
+      if (this.#duplicate(error)) throw new AppError(409, 'EMAIL_ALREADY_EXISTS', 'An account already uses this email address.');
+      throw error;
+    }
     if (issued) await this.#deliverOtp(email, issued);
   }
 
@@ -157,6 +163,7 @@ export class AuthService {
     const code = this.#otpCodes.issue();
     return this.#repository.transaction(async (transaction) => {
       let user = await transaction.findUserByEmail(email);
+      if (user && createUser) throw new AppError(409, 'EMAIL_ALREADY_EXISTS', 'An account already uses this email address.');
       if (!user && createUser && passwordHash) user = await transaction.insertUser(randomUUID(), email, passwordHash, new Date());
       if (!user || user.emailVerifiedAt) return null;
       const now = new Date();
@@ -176,5 +183,9 @@ export class AuthService {
 
   async #limit(action: string, identifier: string, limit: number, seconds: number): Promise<void> {
     if (!await this.#rateLimiter.consume(action, identifier, limit, seconds)) throw new AppError(429, 'RATE_LIMITED', 'Too many requests.');
+  }
+
+  #duplicate(error: unknown): boolean {
+    return !!error && typeof error === 'object' && (((error as { code?: unknown }).code === 'ER_DUP_ENTRY') || ((error as { errno?: unknown }).errno === 1062));
   }
 }

@@ -7,10 +7,11 @@ import {
 } from '../../src/modules/admin-data/resources/admin-data-resources.ts';
 
 test('admin data allowlist contains every non-internal database table exactly once', () => {
-  assert.equal(ADMIN_DATA_RESOURCES.length, 43);
-  assert.equal(new Set(ADMIN_DATA_RESOURCES).size, 43);
+  assert.equal(ADMIN_DATA_RESOURCES.length, 47);
+  assert.equal(new Set(ADMIN_DATA_RESOURCES).size, 47);
   assert.equal(isAdminDataResource('users'), true);
   assert.equal(isAdminDataResource('resume_retention_notices'), true);
+  assert.equal(isAdminDataResource('email_templates'), true);
   assert.equal(isAdminDataResource('schema_migrations'), false);
   assert.equal(isAdminDataResource('users; DROP TABLE users'), false);
 });

@@ -5,6 +5,7 @@ import { createApp } from '../../src/app.ts';
 import { AuthController } from '../../src/modules/auth/controllers/auth-controller.ts';
 import { createAuthRouter } from '../../src/modules/auth/routes/auth-router.ts';
 import type { AuthService } from '../../src/modules/auth/services/auth-service.ts';
+import { AppError } from '../../src/shared/http/errors.ts';
 import type { Logger } from '../../src/shared/logging/logger.ts';
 import { CookiePolicy } from '../../src/shared/security/cookie-policy.ts';
 
@@ -22,9 +23,9 @@ const service = {
   resetPassword: async () => undefined,
 } as unknown as AuthService;
 
-async function call(path: string, body: unknown, headers: Record<string, string> = {}, method = 'POST'): Promise<Response> {
+async function call(path: string, body: unknown, headers: Record<string, string> = {}, method = 'POST', authService: AuthService = service): Promise<Response> {
   const cookies = new CookiePolicy({ secure: true, sameSite: 'Lax', accessTtlSeconds: 900, refreshTtlDays: 30 });
-  const app = createApp({ databaseHealth: { check: async () => ({ healthy: true, latencyMs: 0 }) }, environment: 'testing', logger: silentLogger, authRouter: createAuthRouter(new AuthController(service, cookies)) });
+  const app = createApp({ databaseHealth: { check: async () => ({ healthy: true, latencyMs: 0 }) }, environment: 'testing', logger: silentLogger, authRouter: createAuthRouter(new AuthController(authService, cookies)) });
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   try {
@@ -55,6 +56,14 @@ test('Auth validator rejects unknown fields before the service boundary', async 
   assert.equal(response.status, 422);
   assert.equal(body.code, 'VALIDATION_ERROR');
   assert.ok(Array.isArray(body.errors));
+});
+
+test('duplicate registration exposes the stable existing-account recovery code', async () => {
+  const duplicateService = { ...service, register: async () => { throw new AppError(409, 'EMAIL_ALREADY_EXISTS', 'An account already uses this email address.'); } } as unknown as AuthService;
+  const response = await call('/api/v1/auth/register', { email: 'user@example.com', password: 'password-strong' }, {}, 'POST', duplicateService);
+  const body = await response.json() as { code: string };
+  assert.equal(response.status, 409);
+  assert.equal(body.code, 'EMAIL_ALREADY_EXISTS');
 });
 
 test('refresh rejects a request without cookie and CSRF credentials', async () => {
