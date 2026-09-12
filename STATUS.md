@@ -10,8 +10,8 @@ Updated: 2026-09-12
   collision handling, unique binary database index.
 - QR: Node `qrcode` PNG service, canonical URL payload, file cache, ETag, and
   safe 404/503 handling.
-- WhatsApp CTA: Pro-only in service, seed, applied migration 011, tests, and
-  Postman assertions.
+- WhatsApp CTA: available for Starter, Basic, and Pro; backend derives the
+  normalized URL and migration 012 reconciles all capability rows.
 - Starter cards can be created anonymously; maintenance/editing requires the
   verified account and claim flow.
 - Payment routes remain implemented and fail-closed, while frontend checkout is
@@ -21,9 +21,9 @@ Updated: 2026-09-12
 
 | Classification | Evidence |
 |---|---|
-| Verified | Node 22.23.2 satisfies engine; Express/qrcode are lockfile dependencies; all 13 migrations are applied; database integration and local runtime smoke pass |
+| Verified | Node 22.23.2 satisfies engine; Express/qrcode are lockfile dependencies; all 14 migrations are applied; database integration and local runtime smoke pass |
 | Conflict | Brief path used `krtnmddgtlv2API`; actual canonical Git checkout is `krtnmdgtlv2API` |
-| Conflict | Prior WhatsApp-all-tier rule was superseded by the 2026-09-11 Pro-only baseline |
+| Verified | ADR-006 reconfirms WhatsApp CTA availability for all tiers; migration 012 supersedes the Pro-only capability values without rewriting migration 011 |
 | Verified | Newman 6.2.1 runs the read-only System folder successfully through `npx`; the full mutation collection still requires explicit QA credentials and isolated test data |
 | Superseded | PHP/Laravel active backend and Endroid QR |
 
@@ -55,9 +55,13 @@ Updated: 2026-09-12
 - A timestamped logical backup was created at
   `storage/backups/krtnmdgtlv2-2026-09-11T14-20-02-107Z.sql` (91,532 bytes)
   before schema changes.
-- Migration `011_whatsapp_pro_entitlement.sql` was the only pending migration
-  and was applied successfully. `npm run migrate:status` and
-  `npm run integration:preflight` confirm all 13 migrations and Pro-only
+- A second timestamped logical backup was created before the all-tier
+  reconciliation at `storage/backups/krtnmdgtlv2-2026-09-12T04-05-32-106Z.sql`
+  (93,826 bytes).
+- Migration `012_whatsapp_all_tiers.sql` reconciles the three capability rows
+  to enabled and was applied as an append-only corrective migration. Migration
+  011 remains historical and unchanged. `npm run migrate:status` and
+  `npm run integration:preflight` confirm all 14 migrations and all-tier
   WhatsApp capability values.
 
 ## 2026-09-12 owner clarification

@@ -62,3 +62,15 @@ Membership checkout remains paused at the frontend until a later explicit owner
 decision confirms Midtrans API readiness. Existing backend payment validation
 and gateway integration may remain implemented, but their presence does not
 authorize the browser to initiate checkout while the product gate is paused.
+
+## ADR-006 - WhatsApp CTA is available for all tiers
+
+Date: 2026-09-12
+
+Status: Accepted
+
+The owner reconfirms that click-to-WhatsApp is available for Starter, Basic,
+and Pro. This decision supersedes the Pro-only WhatsApp entitlement wording in
+ADR-004 and the prior implementation baseline. The backend remains the
+authority: it derives a validated wa.me URL from the saved mobile number for
+every tier; the browser never submits a WhatsApp URL.

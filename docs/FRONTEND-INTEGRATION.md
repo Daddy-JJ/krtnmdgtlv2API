@@ -175,9 +175,9 @@ claim endpoint existing dengan cookie management, autentikasi, dan CSRF terbaru.
 
 `contact.websiteUrl` boleh berupa `""`; frontend jangan menghapus property ini.
 Nilai non-empty harus tetap HTTP(S). `whatsappUrl` pada public-card diturunkan
-backend hanya untuk Pro dari `contact.mobilePhone` Indonesia yang valid;
-browser tidak boleh mengirim URL WhatsApp. Starter dan Basic menerima `null`.
-Contoh nomor Pro `081328219697` menjadi
+backend untuk Starter, Basic, dan Pro dari `contact.mobilePhone` Indonesia yang
+valid; browser tidak boleh mengirim URL WhatsApp. Contoh nomor
+`081328219697` menjadi
 `https://wa.me/6281328219697`.
 
 Referensi request:

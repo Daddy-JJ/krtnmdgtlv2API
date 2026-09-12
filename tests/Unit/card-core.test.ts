@@ -29,7 +29,7 @@ test('claimed card can be saved without a website, including in HTTPS-only produ
   await assert.rejects(new CardService({ repository, appUrl: 'https://kartunamadigital.id', requireHttpsUrls: true }).update('user-id', 'card-id', { ...input, contact: { ...input.contact, websiteUrl: 'http://example.com' } }), { status: 422, code: 'VALIDATION_ERROR' });
 });
 
-test('WhatsApp CTA is derived only for Pro from valid Indonesian mobile numbers', async () => {
+test('WhatsApp CTA is derived for every tier from valid Indonesian mobile numbers', async () => {
   const cases = [
     ['081328219697', 'https://wa.me/6281328219697'],
     ['81328219697', 'https://wa.me/6281328219697'],
@@ -44,7 +44,7 @@ test('WhatsApp CTA is derived only for Pro from valid Indonesian mobile numbers'
       const owned = { id: 1, publicId: 'card-id', slug: 'card-slug', planCode, themeCode: 'theme', locale: 'id' as const, status: 'published', contact: { ...input.contact, mobilePhone, mapsUrl: null } };
       const repository = { findOwned: async () => owned } as unknown as CardRepository;
       const result = await new CardService({ repository, appUrl: 'https://kartunamadigital.id' }).get('user-id', 'card-id');
-      assert.equal(result.whatsappUrl, planCode === 'pro' ? expected : null, `${planCode}:${mobilePhone}`);
+      assert.equal(result.whatsappUrl, expected, `${planCode}:${mobilePhone}`);
     }
   }
 });

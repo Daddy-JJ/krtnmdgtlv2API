@@ -175,7 +175,7 @@ const collection = {
         request('Open Starter Email Access', 'POST', '/starter/access', { body: { publicId: '{{starterPublicId}}', token: '{{starterEmailToken}}' } }),
         request('Read Starter Signup Context', 'GET', '/starter/cards/{{starterPublicId}}/signup-context'),
         request('Read Public Starter Card', 'GET', '/public/cards/{{starterSlug}}', {
-          tests: ["if (pm.response.code === 200) pm.test('Starter has no WhatsApp CTA', () => pm.expect(pm.response.json().data.whatsappUrl).to.eql(null));"],
+          tests: ["if (pm.response.code === 200) pm.test('WhatsApp URL is exposed for all tiers', () => pm.expect(pm.response.json().data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\/628/));"],
         }),
       ],
     },

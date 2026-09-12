@@ -49,7 +49,7 @@ test('logo storage uses opaque keys and rejects traversal', async () => {
   finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('public aggregate applies authoritative limits and exposes derived WhatsApp only for Pro', async () => {
+test('public aggregate applies authoritative limits and exposes derived WhatsApp for every tier', async () => {
   let plan: 'starter' | 'basic' | 'pro' = 'starter';
   const repository = { findPublished: async () => card(plan) } as unknown as CardRepository;
   const content = {
@@ -60,7 +60,7 @@ test('public aggregate applies authoritative limits and exposes derived WhatsApp
   const service = new CardService({ repository, content, capabilities, appUrl: 'https://kartunamadigital.id' });
   const starter = await service.publicCard('arwan-sales');
   assert.equal(starter.socialLinks.length, 1); assert.equal(starter.catalogItems.length, 1);
-  assert.equal(starter.whatsappUrl, null); assert.equal(starter.contact.mapsUrl, 'https://maps.google.com/example');
+  assert.equal(starter.whatsappUrl, 'https://wa.me/6281234567890'); assert.equal(starter.contact.mapsUrl, 'https://maps.google.com/example');
   plan = 'pro';
   assert.equal((await service.publicCard('arwan-sales')).whatsappUrl, 'https://wa.me/6281234567890');
 });

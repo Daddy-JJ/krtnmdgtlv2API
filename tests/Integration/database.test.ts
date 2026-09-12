@@ -82,6 +82,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '009_merge_resume_reviewer_role.sql',
       '010_email_templates.sql',
       '011_whatsapp_pro_entitlement.sql',
+      '012_whatsapp_all_tiers.sql',
     ]);
     assert.deepEqual(await migrations.migrate(), []);
     await verifyResumeRoleMerge(pool);
@@ -108,7 +109,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       FROM plan_features pf JOIN plans p ON p.id=pf.plan_id
       WHERE pf.feature_key='whatsapp_cta_enabled'
       ORDER BY FIELD(p.code,'starter','basic','pro')`);
-    assert.deepEqual(whatsAppFeatureRows.map((row) => [row.code, Number(row.enabled)]), [['starter', 0], ['basic', 0], ['pro', 1]]);
+    assert.deepEqual(whatsAppFeatureRows.map((row) => [row.code, Number(row.enabled)]), [['starter', 1], ['basic', 1], ['pro', 1]]);
 
     const [themeNameRows] = await pool.execute<Array<RowDataPacket & { name: string }>>(
       'SELECT name FROM themes ORDER BY display_order',
@@ -387,6 +388,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     }
 
     assert.deepEqual(await migrations.rollbackLastBatch(), [
+      '012_whatsapp_all_tiers.sql',
       '011_whatsapp_pro_entitlement.sql',
       '010_email_templates.sql',
       '009_merge_resume_reviewer_role.sql',
@@ -415,6 +417,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '009_merge_resume_reviewer_role.sql',
       '010_email_templates.sql',
       '011_whatsapp_pro_entitlement.sql',
+      '012_whatsapp_all_tiers.sql',
     ]);
     assert.equal((await seeds.run()).length, 2);
   } finally {

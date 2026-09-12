@@ -107,7 +107,7 @@ password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
 Starter signup prefill tersedia melalui read-only
 `GET /api/v1/starter/cards/:publicId/signup-context` setelah pertukaran email
 token. Public-card `whatsappUrl` selalu diturunkan backend dari nomor mobile
-Indonesia yang valid dan hanya tersedia untuk Pro.
+Indonesia yang valid dan tersedia untuk Starter, Basic, dan Pro.
 
 Starter slug dibuat backend dengan CSPRNG sebagai tepat tujuh huruf ASCII
 case-sensitive. Unique index `cards.slug`, collision check, dan maksimum

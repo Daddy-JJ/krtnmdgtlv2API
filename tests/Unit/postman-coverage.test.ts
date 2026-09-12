@@ -33,5 +33,5 @@ test('Postman collection covers the deploy-gate CRUD and public contracts', asyn
     assert.ok(requests.some((request) => request.method === method && request.url.endsWith(suffix)), `missing ${method} *${suffix}`);
   }
   assert.match(collectionSource, /Starter slug is exactly seven ASCII letters/);
-  assert.match(collectionSource, /WhatsApp URL is exposed only for Pro/);
+  assert.match(collectionSource, /WhatsApp URL is exposed for all tiers/);
 });

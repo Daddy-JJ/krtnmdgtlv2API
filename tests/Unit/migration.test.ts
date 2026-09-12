@@ -120,3 +120,11 @@ test('WhatsApp entitlement migration is reversible and locks the CTA to Pro', as
   assert.doesNotMatch(migration.upSql, /DELETE|DROP|TRUNCATE/i);
   assert.match(migration.downSql, /value_bool = 1/);
 });
+
+test('WhatsApp all-tier migration enables and safely rolls back the CTA', async () => {
+  const migration = await loadMigrationFile(new URL('../../database/migrations/012_whatsapp_all_tiers.sql', import.meta.url).pathname);
+  assert.match(migration.upSql, /value_bool = 1/);
+  assert.match(migration.upSql, /p\.code IN \('starter', 'basic', 'pro'\)/);
+  assert.doesNotMatch(migration.upSql, /DELETE|DROP|TRUNCATE/i);
+  assert.match(migration.downSql, /value_bool = \(p\.code = 'pro'\)/);
+});

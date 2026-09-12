@@ -290,7 +290,7 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/public/cards/{{publicSlug}}" },
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('public aggregate contains bounded content arrays', () => { const data = pm.response.json().data; pm.expect(data.socialLinks).to.be.an('array'); pm.expect(data.catalogItems).to.be.an('array'); });",
-            "pm.test('WhatsApp URL is exposed only for Pro', () => { const data = pm.response.json().data; if (data.planCode === 'pro') pm.expect(data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//); else pm.expect(data.whatsappUrl).to.eql(null); });"
+            "pm.test('WhatsApp URL is exposed for all tiers', () => pm.expect(pm.response.json().data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\/628/));"
           ] } }]
         },
         {
