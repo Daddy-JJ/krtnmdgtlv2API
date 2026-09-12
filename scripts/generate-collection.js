@@ -170,11 +170,13 @@ const collection = {
       item: [
         request('Create Starter Card', 'POST', '/starter/cards', {
           body: { locale: 'id', contact: { fullName: 'Test Starter', jobTitle: '', organization: '', officePhone: '021123456', mobilePhone: '08123456789', email: '{{starterEmail}}', websiteUrl: '', addressText: 'Jakarta' } },
-          tests: ["if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"],
+          tests: ["if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Starter slug is exactly seven ASCII letters', () => pm.expect(d.slug).to.match(/^[A-Za-z]{7}$/)); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"],
         }),
         request('Open Starter Email Access', 'POST', '/starter/access', { body: { publicId: '{{starterPublicId}}', token: '{{starterEmailToken}}' } }),
         request('Read Starter Signup Context', 'GET', '/starter/cards/{{starterPublicId}}/signup-context'),
-        request('Read Public Starter Card', 'GET', '/public/cards/{{starterSlug}}'),
+        request('Read Public Starter Card', 'GET', '/public/cards/{{starterSlug}}', {
+          tests: ["if (pm.response.code === 200) pm.test('Starter has no WhatsApp CTA', () => pm.expect(pm.response.json().data.whatsappUrl).to.eql(null));"],
+        }),
       ],
     },
     {

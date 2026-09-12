@@ -6,7 +6,8 @@ type Item = { item?: Item[]; request?: { method?: string; url?: string | { raw?:
 
 test('Postman collection covers the deploy-gate CRUD and public contracts', async () => {
   const collectionUrl = new URL('../../qa/postman/KartuNamaDigital-API.postman_collection.json', import.meta.url);
-  const collection = JSON.parse(await readFile(collectionUrl, 'utf8')) as { item: Item[] };
+  const collectionSource = await readFile(collectionUrl, 'utf8');
+  const collection = JSON.parse(collectionSource) as { item: Item[] };
   const requests: Array<{ method: string; url: string }> = [];
   const visit = (items: Item[]) => items.forEach((item) => {
     if (item.request) requests.push({
@@ -31,4 +32,6 @@ test('Postman collection covers the deploy-gate CRUD and public contracts', asyn
   for (const [method, suffix] of required) {
     assert.ok(requests.some((request) => request.method === method && request.url.endsWith(suffix)), `missing ${method} *${suffix}`);
   }
+  assert.match(collectionSource, /Starter slug is exactly seven ASCII letters/);
+  assert.match(collectionSource, /WhatsApp URL is exposed only for Pro/);
 });

@@ -49,7 +49,7 @@ ON DUPLICATE KEY UPDATE value_type = VALUES(value_type), value_bool = VALUES(val
 
 INSERT INTO plan_features
   (plan_id, feature_key, value_type, value_bool, value_int, value_text, created_at, updated_at)
-SELECT id, 'whatsapp_cta_enabled', 'bool', 1, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP() FROM plans
+SELECT id, 'whatsapp_cta_enabled', 'bool', code = 'pro', NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP() FROM plans
 WHERE code IN ('starter', 'basic', 'pro')
 ON DUPLICATE KEY UPDATE value_type = VALUES(value_type), value_bool = VALUES(value_bool), value_int = NULL, value_text = NULL, updated_at = UTC_TIMESTAMP();
 

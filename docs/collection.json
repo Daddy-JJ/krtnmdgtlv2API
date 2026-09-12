@@ -291,7 +291,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"
+                  "if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Starter slug is exactly seven ASCII letters', () => pm.expect(d.slug).to.match(/^[A-Za-z]{7}$/)); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"
                 ]
               }
             }
@@ -367,7 +367,18 @@
               ]
             },
             "description": ""
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.test('Starter has no WhatsApp CTA', () => pm.expect(pm.response.json().data.whatsappUrl).to.eql(null));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

@@ -129,7 +129,7 @@
             "url": "{{baseUrl}}/starter/cards"
           },
           "event": [{ "listen": "test", "script": { "exec": [
-            "if (pm.response.code === 201) { const body = pm.response.json(); pm.environment.set('starterPublicId', body.data.publicId); pm.environment.set('publicSlug', body.data.slug); const csrf = pm.cookies.get('starter_csrf_token'); if (csrf) pm.environment.set('starterCsrfToken', csrf); }",
+            "if (pm.response.code === 201) { const body = pm.response.json(); pm.environment.set('starterPublicId', body.data.publicId); pm.environment.set('publicSlug', body.data.slug); pm.test('Starter slug is exactly seven ASCII letters', () => pm.expect(body.data.slug).to.match(/^[A-Za-z]{7}$/)); const csrf = pm.cookies.get('starter_csrf_token'); if (csrf) pm.environment.set('starterCsrfToken', csrf); }",
             "pm.test('manage token is not exposed in JSON', () => pm.expect(pm.response.text()).not.to.match(/manage[_-]?token/i));"
           ] } }]
         },
@@ -290,7 +290,7 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/public/cards/{{publicSlug}}" },
           "event": [{ "listen": "test", "script": { "exec": [
             "pm.test('public aggregate contains bounded content arrays', () => { const data = pm.response.json().data; pm.expect(data.socialLinks).to.be.an('array'); pm.expect(data.catalogItems).to.be.an('array'); });",
-            "pm.test('WhatsApp URL is server-derived for every tier', () => pm.expect(pm.response.json().data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//));"
+            "pm.test('WhatsApp URL is exposed only for Pro', () => { const data = pm.response.json().data; if (data.planCode === 'pro') pm.expect(data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\//); else pm.expect(data.whatsappUrl).to.eql(null); });"
           ] } }]
         },
         {

@@ -29,7 +29,7 @@ test('claimed card can be saved without a website, including in HTTPS-only produ
   await assert.rejects(new CardService({ repository, appUrl: 'https://kartunamadigital.id', requireHttpsUrls: true }).update('user-id', 'card-id', { ...input, contact: { ...input.contact, websiteUrl: 'http://example.com' } }), { status: 422, code: 'VALIDATION_ERROR' });
 });
 
-test('WhatsApp CTA is derived from valid Indonesian mobile numbers for every tier', async () => {
+test('WhatsApp CTA is derived only for Pro from valid Indonesian mobile numbers', async () => {
   const cases = [
     ['081328219697', 'https://wa.me/6281328219697'],
     ['81328219697', 'https://wa.me/6281328219697'],
@@ -44,9 +44,22 @@ test('WhatsApp CTA is derived from valid Indonesian mobile numbers for every tie
       const owned = { id: 1, publicId: 'card-id', slug: 'card-slug', planCode, themeCode: 'theme', locale: 'id' as const, status: 'published', contact: { ...input.contact, mobilePhone, mapsUrl: null } };
       const repository = { findOwned: async () => owned } as unknown as CardRepository;
       const result = await new CardService({ repository, appUrl: 'https://kartunamadigital.id' }).get('user-id', 'card-id');
-      assert.equal(result.whatsappUrl, expected, `${planCode}:${mobilePhone}`);
+      assert.equal(result.whatsappUrl, planCode === 'pro' ? expected : null, `${planCode}:${mobilePhone}`);
     }
   }
+});
+
+test('public lookup rejects malformed slugs before repository access', async () => {
+  let lookups = 0;
+  const repository = { findPublished: async () => { lookups += 1; return null; } } as unknown as CardRepository;
+  const service = new CardService({ repository, appUrl: 'https://kartunamadigital.id' });
+  for (const slug of ['ab', 'A1b2C3D', 'Bad_Slug', '-bad', 'bad-', 'a'.repeat(101)]) {
+    await assert.rejects(service.publicCard(slug), { status: 404, code: 'CARD_NOT_FOUND' });
+  }
+  assert.equal(lookups, 0);
+  await assert.rejects(service.publicCard('aBcDeFg'), { status: 404, code: 'CARD_NOT_FOUND' });
+  await assert.rejects(service.publicCard('basic-custom'), { status: 404, code: 'CARD_NOT_FOUND' });
+  assert.equal(lookups, 2);
 });
 
 test('Card creation fails closed without active Basic/Pro entitlement', async () => {

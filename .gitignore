@@ -4,3 +4,5 @@ npm-debug.log*
 .DS_Store
 storage/.DS_Store
 storage/private/*.pem
+storage/cache/
+storage/backups/

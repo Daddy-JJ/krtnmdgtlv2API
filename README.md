@@ -3,6 +3,11 @@
 REST API untuk KartuNamaDigital.id menggunakan Node.js 22, Express 5, strict
 TypeScript, MySQL/MariaDB, dan arsitektur modular monolith.
 
+Node.js + Express adalah satu-satunya backend aplikasi aktif. Referensi historis
+PHP/Laravel atau Endroid QR berstatus superseded; phpMyAdmin hanya alat
+administrasi database. Keputusan kanonis dicatat di
+`docs/DECISION-LOG.md`.
+
 ## Source of truth
 
 Folder project yang menjadi acuan tunggal saat ini adalah:
@@ -28,8 +33,8 @@ README ini. Jalankan semua perintah dari root tersebut.
 | Backend API | `http://127.0.0.1:3000/api/v1` | Express REST API |
 | MySQL/MariaDB | `127.0.0.1:3306` | Database `krtnmdgtlv2` |
 
-Port frontend dan backend sengaja dipisahkan. Port `8080` sudah digunakan
-frontend/PHP lokal; mengarahkan Express ke port tersebut dapat membuat request
+Port frontend dan backend sengaja dipisahkan. Port `8080` digunakan
+frontend lokal; mengarahkan Express ke port tersebut dapat membuat request
 API masuk ke server yang salah dan menghasilkan HTML 404.
 
 ## Menjalankan project
@@ -102,11 +107,19 @@ password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
 Starter signup prefill tersedia melalui read-only
 `GET /api/v1/starter/cards/:publicId/signup-context` setelah pertukaran email
 token. Public-card `whatsappUrl` selalu diturunkan backend dari nomor mobile
-Indonesia yang valid dan tersedia untuk Starter, Basic, serta Pro.
+Indonesia yang valid dan hanya tersedia untuk Pro.
+
+Starter slug dibuat backend dengan CSPRNG sebagai tepat tujuh huruf ASCII
+case-sensitive. Unique index `cards.slug`, collision check, dan maksimum
+sepuluh percobaan melindungi alokasi. QR PNG dibuat oleh modul Node
+`src/modules/rendering/qr/` dari canonical public URL dan memakai cache
+content-addressed serta ETag.
 
 ## Dokumentasi utama
 
 - [Development guide](./docs/DEVELOPMENT.md)
+- [Backend architecture](./docs/ARCHITECTURE.md)
+- [Decision log](./docs/DECISION-LOG.md)
 - [Frontend integration](./docs/FRONTEND-INTEGRATION.md)
 - [CRUD, schema, collection, dan dummy seed QA](./docs/CRUD-QA.md)
 - [Role and access reference](./docs/ROLES.md)

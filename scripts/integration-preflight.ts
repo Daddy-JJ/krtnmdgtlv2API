@@ -69,7 +69,8 @@ try {
   const [whatsAppRows] = await pool.query<Array<RowDataPacket & { code: string; enabled: number }>>(`SELECT p.code,pf.value_bool enabled
     FROM plan_features pf JOIN plans p ON p.id=pf.plan_id
     WHERE pf.feature_key='whatsapp_cta_enabled' AND p.code IN ('starter','basic','pro')`);
-  check('whatsapp_cta_enabled_for_all_tiers', whatsAppRows.length === 3 && whatsAppRows.every((row) => Number(row.enabled) === 1));
+  check('whatsapp_cta_enabled_for_pro_only', whatsAppRows.length === 3
+    && whatsAppRows.every((row) => Number(row.enabled) === (row.code === 'pro' ? 1 : 0)));
 
   const failures = checks.filter((entry) => !entry.passed).map((entry) => entry.name);
   if (failures.length > 0) throw new Error(`Integration preflight failed: ${failures.join(', ')}.`);

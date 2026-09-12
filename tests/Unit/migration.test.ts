@@ -112,3 +112,11 @@ test('email template migration is reversible and pins queued mail versions',asyn
   assert.match(migration.upSql,/CREATE TRIGGER pin_mail_template_version/);
   assert.match(migration.downSql,/DROP TRIGGER IF EXISTS pin_mail_template_version/);
 });
+
+test('WhatsApp entitlement migration is reversible and locks the CTA to Pro', async () => {
+  const migration = await loadMigrationFile(new URL('../../database/migrations/011_whatsapp_pro_entitlement.sql', import.meta.url).pathname);
+  assert.match(migration.upSql, /value_bool = \(p\.code = 'pro'\)/);
+  assert.match(migration.upSql, /feature_key = 'whatsapp_cta_enabled'/);
+  assert.doesNotMatch(migration.upSql, /DELETE|DROP|TRUNCATE/i);
+  assert.match(migration.downSql, /value_bool = 1/);
+});

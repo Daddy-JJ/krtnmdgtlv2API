@@ -46,3 +46,16 @@ test('QR rate limit fails before published-card lookup', async () => {
   await assert.rejects(service.get('aBcDeFg', 'client'), { status: 429, code: 'RATE_LIMITED' });
   assert.equal(lookedUp, false);
 });
+
+test('QR cache and renderer failures use the same safe unavailable contract', async () => {
+  const cards = { publicCard: async () => base } as unknown as CardService;
+  const limiter = { consume: async () => true } as RateLimiter;
+  const failingCache = { get: async () => { throw new Error('internal cache path'); }, put: async () => undefined } as unknown as QrFileCache;
+  const cacheFailure = new QrCodeRenderingService({ cards, renderer: new QrcodeRenderer(), cache: failingCache, rateLimiter: limiter });
+  await assert.rejects(cacheFailure.get(base.slug, 'client'), { status: 503, code: 'QR_RENDERER_UNAVAILABLE', message: 'QR code is temporarily unavailable.' });
+
+  const emptyCache = { get: async () => null, put: async () => undefined } as unknown as QrFileCache;
+  const failingRenderer = { renderPng: async () => { throw new Error('internal renderer detail'); } };
+  const renderFailure = new QrCodeRenderingService({ cards, renderer: failingRenderer, cache: emptyCache, rateLimiter: limiter });
+  await assert.rejects(renderFailure.get(base.slug, 'client'), { status: 503, code: 'QR_RENDERER_UNAVAILABLE', message: 'QR code is temporarily unavailable.' });
+});

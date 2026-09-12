@@ -37,16 +37,19 @@ test('database migrations preserve the locked integrity and indexing baseline', 
 });
 
 test('canonical project keeps every seed inside its own database directory', async () => {
-  const [seedScript, plans, themes] = await Promise.all([
+  const [seedScript, plans, themes, whatsAppMigration] = await Promise.all([
     read('scripts/seed.ts'),
     read('database/seeders/001_plans_and_features.sql'),
     read('database/seeders/002_card_themes.sql'),
+    read('database/migrations/011_whatsapp_pro_entitlement.sql'),
   ]);
 
   assert.doesNotMatch(seedScript, /\.\.\/\.\.\/database\/seeds/);
   assert.match(plans, /'starter'/);
   assert.match(plans, /'basic'/);
   assert.match(plans, /'pro'/);
+  assert.match(plans, /'whatsapp_cta_enabled'[\s\S]*code = 'pro'/);
+  assert.match(whatsAppMigration, /value_bool = \(p\.code = 'pro'\)/);
   assert.match(themes, /starter-clean/);
   assert.match(themes, /pro-vertical-modern-dark/);
 });

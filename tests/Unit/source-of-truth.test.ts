@@ -36,3 +36,17 @@ test('development documentation preserves database-test and secret safety rules'
   assert.match(runner, /testDatabase === productionLikeDatabase/);
   assert.match(runner, /\/_test\$\/i/);
 });
+
+test('backend SOT unambiguously supersedes PHP Laravel and Endroid runtimes', async () => {
+  const [manifest, architecture, decisions, packageSource] = await Promise.all([
+    read('SOT-MANIFEST.md'),
+    read('docs/ARCHITECTURE.md'),
+    read('docs/DECISION-LOG.md'),
+    read('package.json'),
+  ]);
+  const documentation = [manifest, architecture, decisions].join('\n');
+  assert.match(documentation, /Node\.js.*Express.*official backend/is);
+  assert.match(documentation, /PHP\/Laravel.*superseded/is);
+  assert.match(documentation, /Endroid QR.*superseded/is);
+  assert.match(packageSource, /">=22\.18 <23"/);
+});

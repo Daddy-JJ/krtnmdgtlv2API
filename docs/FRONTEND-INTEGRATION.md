@@ -11,14 +11,10 @@ Health endpoint : http://127.0.0.1:3000/api/v1/health
 Jangan mengirim request API ke port `8080`; port tersebut dilayani frontend.
 HTML 404 dari port `8080` berarti request tidak pernah mencapai Express.
 
-Simpan API base URL pada environment frontend, misalnya:
-
-```ini
-VITE_API_BASE_URL=http://127.0.0.1:3000/api/v1
-```
-
-Nama environment dapat disesuaikan dengan framework frontend. Hindari menulis
-base URL berulang di setiap component.
+Frontend kanonis bukan Vite. Konfigurasi berada di
+`config/runtime-config.js` dan `config/app-config.js`; fallback development
+untuk `localhost` dan `127.0.0.1` harus menuju
+`http://127.0.0.1:3000/api/v1`. Hindari base URL berulang di setiap halaman.
 
 ## Fetch client minimum
 
@@ -179,8 +175,9 @@ claim endpoint existing dengan cookie management, autentikasi, dan CSRF terbaru.
 
 `contact.websiteUrl` boleh berupa `""`; frontend jangan menghapus property ini.
 Nilai non-empty harus tetap HTTP(S). `whatsappUrl` pada public-card diturunkan
-backend untuk Starter, Basic, dan Pro dari `contact.mobilePhone` Indonesia yang
-valid; browser tidak boleh mengirim URL WhatsApp. Contoh `081328219697` menjadi
+backend hanya untuk Pro dari `contact.mobilePhone` Indonesia yang valid;
+browser tidak boleh mengirim URL WhatsApp. Starter dan Basic menerima `null`.
+Contoh nomor Pro `081328219697` menjadi
 `https://wa.me/6281328219697`.
 
 Referensi request:

@@ -49,14 +49,18 @@ test('logo storage uses opaque keys and rejects traversal', async () => {
   finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('public aggregate applies authoritative limits and exposes derived WhatsApp for Starter', async () => {
-  const repository = { findPublished: async () => card('starter') } as unknown as CardRepository;
+test('public aggregate applies authoritative limits and exposes derived WhatsApp only for Pro', async () => {
+  let plan: 'starter' | 'basic' | 'pro' = 'starter';
+  const repository = { findPublished: async () => card(plan) } as unknown as CardRepository;
   const content = {
     listPublishedSocial: async (_slug: string, limit: number) => [{ id: 1, platform: 'linkedin', url: 'https://linkedin.com/in/a', sortOrder: 1 }].slice(0, limit),
     listPublishedCatalog: async (_slug: string, limit: number) => [{ publicId: 'item', title: 'Public', description: null, targetUrl: null, sortOrder: 1, isPublished: true }].slice(0, limit),
   } as unknown as CardContentRepository;
   const capabilities = { getLimit: async (_plan: string, key: string) => key === 'social_link_limit' ? 5 : 10 } as unknown as PlanCapabilityService;
-  const result = await new CardService({ repository, content, capabilities, appUrl: 'https://kartunamadigital.id' }).publicCard('arwan-sales');
-  assert.equal(result.socialLinks.length, 1); assert.equal(result.catalogItems.length, 1);
-  assert.equal(result.whatsappUrl, 'https://wa.me/6281234567890'); assert.equal(result.contact.mapsUrl, 'https://maps.google.com/example');
+  const service = new CardService({ repository, content, capabilities, appUrl: 'https://kartunamadigital.id' });
+  const starter = await service.publicCard('arwan-sales');
+  assert.equal(starter.socialLinks.length, 1); assert.equal(starter.catalogItems.length, 1);
+  assert.equal(starter.whatsappUrl, null); assert.equal(starter.contact.mapsUrl, 'https://maps.google.com/example');
+  plan = 'pro';
+  assert.equal((await service.publicCard('arwan-sales')).whatsappUrl, 'https://wa.me/6281234567890');
 });
