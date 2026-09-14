@@ -25,6 +25,26 @@ Keys are fixed: `starter.management`, `auth.registration-otp`,
 `resume.retention-{30|7|1}-days`. Arbitrary template creation/deletion and trigger
 editing are not supported. The legacy one-day key remains `resume.retention-1-days`.
 
+The built-in Indonesian defaults use one professional transactional shell: a
+600 px email-safe table layout, restrained navy and teal palette, visible brand
+wordmark, button-style actions, a bordered security/retention notice, and a
+plain-text alternative. The approved default subjects are:
+
+| Key | Default subject |
+|---|---|
+| `starter.management` | Kartu digital Anda sudah siap |
+| `auth.registration-otp` | Kode verifikasi akun Anda |
+| `auth.password-reset` | Atur ulang password akun Anda |
+| `resume.completed` | Resume Anda sudah siap diunduh |
+| `resume.retention-30-days` | Masa unduh resume Anda masih 30 hari |
+| `resume.retention-7-days` | Pengingat: masa unduh resume berakhir dalam 7 hari |
+| `resume.retention-1-days` | Penting: masa unduh resume berakhir besok |
+
+The renderer uses inline styles and presentation tables for broad mailbox
+compatibility. It does not add scripts, external CSS, tracking pixels, or
+browser-owned links. Optional logo assets remain opt-in; the safe default uses
+a text wordmark so delivery never depends on a missing remote image.
+
 All rendering passes through one structured renderer. Raw HTML/CSS/scripts,
 arbitrary URL targets, unknown variables, duplicate/missing system blocks, header
 line breaks, and payloads over 64 KiB are rejected. Action URLs are event-owned,
