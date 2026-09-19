@@ -1,10 +1,10 @@
 # Backend Status
 
-Updated: 2026-09-12
+Updated: 2026-09-19
 
 ## Current implementation
 
-- Official backend: Node.js 22, Express 5, TypeScript, MySQL/MariaDB.
+- Official backend: Node.js 22/24 LTS, Express 5, TypeScript, MySQL/MariaDB.
 - API base: `http://127.0.0.1:3000/api/v1`.
 - Starter slug: CSPRNG seven ASCII letters, case-sensitive, ten-attempt bounded
   collision handling, unique binary database index.
@@ -21,7 +21,7 @@ Updated: 2026-09-12
 
 | Classification | Evidence |
 |---|---|
-| Verified | Node 22.23.2 satisfies engine; Express/qrcode are lockfile dependencies; all 14 migrations are applied; database integration and local runtime smoke pass |
+| Verified | Local Node 22.23.2 and production Node 24.21.0 satisfy the dual-LTS engine; Express/qrcode are lockfile dependencies; all 14 migrations are applied; database integration and local runtime smoke pass |
 | Conflict | Brief path used `krtnmddgtlv2API`; actual canonical Git checkout is `krtnmdgtlv2API` |
 | Verified | ADR-006 reconfirms WhatsApp CTA availability for all tiers; migration 012 supersedes the Pro-only capability values without rewriting migration 011 |
 | Verified | Newman 6.2.1 runs the read-only System folder successfully through `npx`; the full mutation collection still requires explicit QA credentials and isolated test data |

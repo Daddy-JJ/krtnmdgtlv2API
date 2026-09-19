@@ -1,6 +1,6 @@
 # krtnmdgtlv2API Backend
 
-REST API untuk KartuNamaDigital.id menggunakan Node.js 22, Express 5, strict
+REST API untuk KartuNamaDigital.id menggunakan Node.js 22/24 LTS, Express 5, strict
 TypeScript, MySQL/MariaDB, dan arsitektur modular monolith.
 
 Node.js + Express adalah satu-satunya backend aplikasi aktif. Referensi historis
@@ -39,7 +39,8 @@ API masuk ke server yang salah dan menghasilkan HTML 404.
 
 ## Menjalankan project
 
-Prasyarat: Node.js `>=22.18 <23`, npm, XAMPP MySQL/MariaDB, dan database lokal
+Prasyarat lokal: Node.js `>=22.18 <23` atau `>=24.21 <25`, npm,
+XAMPP MySQL/MariaDB, dan database lokal
 yang dapat diakses oleh user aplikasi.
 
 ```powershell
@@ -126,6 +127,7 @@ content-addressed serta ETag.
 - [Starter email and access contract](./docs/STARTER-EMAIL.md)
 - [Transactional email template management](./docs/EMAIL-TEMPLATES.md)
 - [Startup dan bootloop recovery](./docs/STARTUP-RECOVERY.md)
+- [Production hosting baseline](./docs/HOSTING.md)
 - [Dependency policy](./dependency-requirements.md)
 - [Mail template guide](./resources/mail/README.md)
 

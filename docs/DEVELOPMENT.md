@@ -15,9 +15,10 @@ ini terlebih dahulu, kemudian dideploy satu arah.
 
 ## Runtime baseline
 
-- Node.js `>=22.18 <23`.
+- Node.js `>=22.18 <23` untuk workstation saat ini atau `>=24.21 <25` untuk
+  kesetaraan dengan runtime production.
 - Express 5.
-- TypeScript strict, dijalankan langsung oleh Node 22 dengan erasable syntax.
+- TypeScript strict, dijalankan langsung oleh Node 22/24 dengan erasable syntax.
 - MySQL2 ke XAMPP MariaDB/MySQL pada `127.0.0.1:3306`.
 - Backend lokal pada port `3000`.
 - Frontend lokal pada port `8080`.

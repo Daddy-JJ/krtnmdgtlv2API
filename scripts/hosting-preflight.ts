@@ -41,7 +41,7 @@ function supportedNodeVersion(version: string): boolean {
   if (!match) return false;
   const major = Number(match[1]);
   const minor = Number(match[2]);
-  return major === 22 && minor >= 18;
+  return major === 24 && minor >= 21;
 }
 
 function httpsUrl(value: string | undefined): boolean {
@@ -60,9 +60,9 @@ export function assessHostingPreflight(input: HostingPreflightInput): HostingPre
     checks.push({ id, passed, message });
   };
 
-  add('runtime.node22', supportedNodeVersion(input.nodeVersion), 'Effective application runtime is Node.js >=22.18 and <23.');
+  add('runtime.node24', supportedNodeVersion(input.nodeVersion), 'Effective hosting runtime is Node.js >=24.21 and <25.');
   add('runtime.scrypt', input.scryptAvailable, 'The built-in asynchronous scrypt password adapter is available.');
-  add('package.engine', input.packageEngine === '>=22.18 <23', 'Package engine matches the locked runtime range.');
+  add('package.engine', input.packageEngine === '>=22.18 <23 || >=24.21 <25', 'Package engine supports the local Node.js 22 and hosting Node.js 24 LTS ranges.');
   add('file.startup', input.files.startup, 'Default LiteSpeed Passenger app.js entrypoint resolves to a readable CommonJS bridge.');
   add('file.server', input.files.serverSource, 'Backend server source is readable.');
   add('storage.private', input.writable.privateStorage, 'Private storage is writable by the application process.');

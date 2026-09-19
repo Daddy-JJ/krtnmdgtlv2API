@@ -4,12 +4,14 @@
 
 Date: 2026-09-11
 
+Updated: 2026-09-19
+
 Status: Accepted
 
-Node.js `>=22.18 <23`, Express 5, TypeScript, and MySQL/MariaDB are the active
-backend stack. Any document that presents PHP or Laravel as an active backend is
-superseded. Historical documents are retained for provenance. phpMyAdmin is
-administration tooling only.
+Node.js `>=22.18 <23 || >=24.21 <25`, Express 5, TypeScript, and MySQL/MariaDB
+are the active backend stack. Any document that presents PHP or Laravel as an
+active backend is superseded. Historical documents are retained for provenance.
+phpMyAdmin is administration tooling only.
 
 ## ADR-002 - QR rendering is native to the Node backend
 

@@ -1,6 +1,6 @@
 # Backend SOT Manifest
 
-Updated: 2026-09-11
+Updated: 2026-09-19
 
 ## Scope and authority
 
@@ -15,9 +15,9 @@ KartuNamaDigital.id. Authority order:
    integration.
 5. `STATUS.md` for current verification evidence and blockers.
 
-Node.js 22 + Express 5 + MySQL/MariaDB is the official backend. PHP/Laravel and
-Endroid QR references are historical and superseded. phpMyAdmin is an optional
-database administration tool, not an application runtime.
+Node.js 22/24 LTS + Express 5 + MySQL/MariaDB is the official backend.
+PHP/Laravel and Endroid QR references are historical and superseded. phpMyAdmin
+is an optional database administration tool, not an application runtime.
 
 ## Machine-readable sources
 

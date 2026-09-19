@@ -11,7 +11,8 @@ Frontend      : http://127.0.0.1:8080
 Backend       : http://127.0.0.1:3000
 API base      : http://127.0.0.1:3000/api/v1
 Database      : 127.0.0.1:3306 / krtnmdgtlv2
-Node          : >=22.18 <23
+Node local    : >=22.18 <23 atau >=24.21 <25
+Node hosting  : 24.21.0 (server sierra)
 ```
 
 ## Pemeriksaan awal read-only
@@ -122,7 +123,7 @@ refresh session, ganti CSRF lama dengan token baru.
 
 Periksa secara berurutan:
 
-1. Runtime hosting benar-benar Node 22 dalam range package.
+1. Runtime hosting benar-benar Node 24.21.x dalam range package.
 2. Startup file adalah `app.js` atau adapter panel yang sesuai.
 3. Working directory berisi project lengkap dan `.env` berada di root.
 4. Dependency production terpasang.

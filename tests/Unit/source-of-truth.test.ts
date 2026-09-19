@@ -48,5 +48,13 @@ test('backend SOT unambiguously supersedes PHP Laravel and Endroid runtimes', as
   assert.match(documentation, /Node\.js.*Express.*official backend/is);
   assert.match(documentation, /PHP\/Laravel.*superseded/is);
   assert.match(documentation, /Endroid QR.*superseded/is);
-  assert.match(packageSource, /">=22\.18 <23"/);
+  assert.match(packageSource, /">=22\.18 <23 \|\| >=24\.21 <25"/);
+});
+
+test('production hosting documentation records the Sierra runtime without changing domain or application root', async () => {
+  const hosting = await read('docs/HOSTING.md');
+  assert.match(hosting, /Server name.*sierra/i);
+  assert.match(hosting, /Node\.js.*24\.21\.0/i);
+  assert.match(hosting, /api\.kartunamadigital\.id/i);
+  assert.match(hosting, /\/home\/karj9582\/repositories\/krtnmdgtlv2API-clean/);
 });

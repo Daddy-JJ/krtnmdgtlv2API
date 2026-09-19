@@ -3,9 +3,9 @@ import test from 'node:test';
 import { assessHostingPreflight, type HostingPreflightInput } from '../../scripts/hosting-preflight.ts';
 
 const validInput: HostingPreflightInput = {
-  nodeVersion: 'v22.18.0',
+  nodeVersion: 'v24.21.0',
   scryptAvailable: true,
-  packageEngine: '>=22.18 <23',
+  packageEngine: '>=22.18 <23 || >=24.21 <25',
   environment: {
     APP_ENV: 'staging',
     APP_DEBUG: 'false',
@@ -23,17 +23,17 @@ const validInput: HostingPreflightInput = {
   writable: { privateStorage: true, qrCache: true, publicStorage: true },
 };
 
-test('hosting preflight accepts only the complete Node.js 22 shared-hosting baseline', () => {
+test('hosting preflight accepts the Sierra Node.js 24.21 shared-hosting baseline', () => {
   const result = assessHostingPreflight(validInput);
   assert.equal(result.ready, true);
   assert.equal(result.failed, 0);
   assert.equal(result.passed, 20);
 });
 
-test('hosting preflight fails closed for unsupported Node.js 24, missing controls, and wildcard CORS', () => {
+test('hosting preflight fails closed for an obsolete hosting runtime, missing controls, and wildcard CORS', () => {
   const result = assessHostingPreflight({
     ...validInput,
-    nodeVersion: 'v24.18.0',
+    nodeVersion: 'v22.23.2',
     scryptAvailable: false,
     environment: {
       ...validInput.environment,
@@ -49,8 +49,14 @@ test('hosting preflight fails closed for unsupported Node.js 24, missing control
 
   assert.equal(result.ready, false);
   assert.ok(result.failed >= 9);
-  assert.equal(result.checks.find((check) => check.id === 'runtime.node22')?.passed, false);
+  assert.equal(result.checks.find((check) => check.id === 'runtime.node24')?.passed, false);
   assert.equal(result.checks.find((check) => check.id === 'env.cors')?.passed, false);
+});
+
+test('hosting preflight rejects Node.js 24 releases older than the Sierra baseline', () => {
+  const result = assessHostingPreflight({ ...validInput, nodeVersion: 'v24.20.0' });
+  assert.equal(result.ready, false);
+  assert.equal(result.checks.find((check) => check.id === 'runtime.node24')?.passed, false);
 });
 
 test('hosting preflight output never contains environment secret values', () => {

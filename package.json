@@ -5,7 +5,7 @@
   "description": "SOT-driven Node.js and Express modular monolith for KartuNamaDigital.id",
   "type": "commonjs",
   "engines": {
-    "node": ">=22.18 <23"
+    "node": ">=22.18 <23 || >=24.21 <25"
   },
   "scripts": {
     "dev": "node --watch src/server.ts",

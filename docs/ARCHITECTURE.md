@@ -1,11 +1,12 @@
 # Backend Architecture
 
-Updated: 2026-09-11
+Updated: 2026-09-19
 
 ## Runtime
 
-The active backend is a Node.js `>=22.18 <23` process using Express 5 and
-strict TypeScript. `src/server.ts` assembles adapters and domain services;
+The active backend is a Node.js process using Express 5 and strict TypeScript.
+Supported LTS ranges are `>=22.18 <23 || >=24.21 <25`; production runs
+Node.js `24.21.0`. `src/server.ts` assembles adapters and domain services;
 `src/app.ts` owns the `/api/v1` prefix, exact credentialed CORS, security
 headers, request logging, JSON parsing, 404 handling, and the common safe error
 envelope.
