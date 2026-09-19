@@ -118,6 +118,7 @@ const accessTokens = new Rs256AccessTokenService({
   audience: environment.JWT_AUDIENCE,
   ttlSeconds: environment.ACCESS_TOKEN_TTL_SECONDS,
 });
+accessTokens.validateConfiguration();
 const cookies = new CookiePolicy({
   secure: environment.COOKIE_SECURE,
   sameSite: environment.COOKIE_SAMESITE,

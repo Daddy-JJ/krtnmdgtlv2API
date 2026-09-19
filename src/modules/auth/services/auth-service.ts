@@ -88,7 +88,8 @@ export class AuthService {
   async login(email: string, password: string, clientKey: string): Promise<SessionResult> {
     await this.#limit('login', `${clientKey}:${email}`, 10, 900);
     const user = await this.#repository.transaction((transaction) => transaction.findUserByEmail(email));
-    const valid = await this.#passwords.verify(password, user?.passwordHash ?? this.#dummyPasswordHash);
+    const storedHash = typeof user?.passwordHash === 'string' && user.passwordHash.trim().length > 0 ? user.passwordHash : null;
+    const valid = await this.#passwords.verify(password, storedHash ?? this.#dummyPasswordHash);
     if (!user || !valid || user.status !== 'active') throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
     if (!user.emailVerifiedAt) throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Email verification is required.');
     return this.#createSession(user);

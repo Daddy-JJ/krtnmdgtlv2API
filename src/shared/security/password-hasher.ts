@@ -32,6 +32,7 @@ export class ScryptPasswordHasher implements PasswordHasher {
   }
 
   async verify(password: string, encodedHash: string): Promise<boolean> {
+    if (typeof encodedHash !== 'string' || encodedHash.length === 0) return false;
     const match = encodedPattern.exec(encodedHash);
     if (!match) return false;
     try {

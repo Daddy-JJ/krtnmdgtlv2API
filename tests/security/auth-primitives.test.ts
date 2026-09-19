@@ -57,6 +57,7 @@ test('RS256 access token validates signature, issuer, audience, session, and exp
     ttlSeconds: 900,
   });
   const now = new Date('2026-07-18T12:00:00.000Z');
+  assert.doesNotThrow(() => service.validateConfiguration(now));
   const token = service.issue({ userPublicId: 'user-public-id', sessionId: 'family-id', role: 'user' }, now);
   const claims = service.verify(token, new Date('2026-07-18T12:10:00.000Z'));
 
@@ -65,6 +66,16 @@ test('RS256 access token validates signature, issuer, audience, session, and exp
   assert.equal(service.verify(token, new Date('2026-07-18T12:16:00.000Z')), null);
   const replacement = token.endsWith('A') ? 'B' : 'A';
   assert.equal(service.verify(`${token.slice(0, -1)}${replacement}`, now), null);
+
+  const otherPair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const mismatched = new Rs256AccessTokenService({
+    privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    publicKey: otherPair.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+    issuer: 'kartunamadigital.id',
+    audience: 'kartunamadigital-web',
+    ttlSeconds: 900,
+  });
+  assert.throws(() => mismatched.validateConfiguration(now), /JWT signing key pair validation failed/);
 });
 
 test('cookie policy keeps credentials HttpOnly and enforces Secure for SameSite=None', () => {

@@ -40,6 +40,11 @@ export class Rs256AccessTokenService {
     this.#config = config;
   }
 
+  validateConfiguration(now = new Date()): void {
+    const probe = this.issue({ userPublicId: 'startup-key-validation', sessionId: 'startup-key-validation', role: 'member' }, now);
+    if (!this.verify(probe, now)) throw new Error('JWT signing key pair validation failed.');
+  }
+
   issue(input: AccessTokenInput, now = new Date()): string {
     const role = normalizeRole(input.role);
     if (!role) throw new Error('Unsupported account role.');

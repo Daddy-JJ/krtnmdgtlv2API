@@ -2,17 +2,17 @@ import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql
 import type { AuthRepository, AuthTransaction, OtpRecord, RefreshRecord, ResetRecord, UserRecord } from './auth-repository.ts';
 import { normalizeRoles, primaryRole } from '../../../shared/security/roles.ts';
 
-type UserRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string; active_roles: string | null; status: string; email_verified_at: Date | null };
+type UserRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string | null; active_roles: string | null; status: string; email_verified_at: Date | null };
 
 const activeRolesSql = `(SELECT GROUP_CONCAT(DISTINCT r.code ORDER BY FIELD(r.code,'super_admin','resume_service_admin','cv_specialist','member'))
   FROM user_roles ur JOIN roles r ON r.id=ur.role_id
   WHERE ur.user_id=u.id AND ur.revoked_at IS NULL)`;
 
-function user(row: UserRow): UserRecord {
+function user(row: UserRow): UserRecord | null {
   const roles = normalizeRoles(row.active_roles?.split(',') ?? []);
   const role = primaryRole(roles);
-  if (!role) throw new Error('Account has no active canonical role.');
-  return { id: row.id, publicId: row.public_id, email: row.email, passwordHash: row.password_hash, role, roles, status: row.status, emailVerifiedAt: row.email_verified_at };
+  if (!role) return null;
+  return { id: row.id, publicId: row.public_id, email: row.email, passwordHash: typeof row.password_hash === 'string' ? row.password_hash : '', role, roles, status: row.status, emailVerifiedAt: row.email_verified_at };
 }
 
 class MySqlAuthTransaction implements AuthTransaction {

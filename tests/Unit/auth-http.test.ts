@@ -23,7 +23,7 @@ const service = {
   resetPassword: async () => undefined,
 } as unknown as AuthService;
 
-async function call(path: string, body: unknown, headers: Record<string, string> = {}, method = 'POST', authService: AuthService = service): Promise<Response> {
+async function call(path: string, body: unknown, headers: Record<string, string> = {}, method = 'POST', authService: AuthService = service, rawBody?: string): Promise<Response> {
   const cookies = new CookiePolicy({ secure: true, sameSite: 'Lax', accessTtlSeconds: 900, refreshTtlDays: 30 });
   const app = createApp({ databaseHealth: { check: async () => ({ healthy: true, latencyMs: 0 }) }, environment: 'testing', logger: silentLogger, authRouter: createAuthRouter(new AuthController(authService, cookies)) });
   const server = app.listen(0, '127.0.0.1');
@@ -33,7 +33,7 @@ async function call(path: string, body: unknown, headers: Record<string, string>
     return await fetch(`http://127.0.0.1:${port}${path}`, {
       method,
       headers: { 'content-type': 'application/json', ...headers },
-      ...(method === 'GET' ? {} : { body: JSON.stringify(body) }),
+      ...(method === 'GET' ? {} : { body: rawBody ?? JSON.stringify(body) }),
     });
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -48,6 +48,54 @@ test('login sets HttpOnly credentials and a readable Secure CSRF cookie', async 
   assert.equal(setCookies.some((value) => value.startsWith('refresh_token=') && value.includes('HttpOnly')), true);
   assert.equal(setCookies.some((value) => value.startsWith('csrf_token=') && !value.includes('HttpOnly')), true);
   assert.equal(setCookies.some((value) => value.startsWith('csrf_token=') && value.includes('Path=/;')), true);
+});
+
+test('login preserves the validation contract when fields are missing', async () => {
+  const response = await call('/api/v1/auth/login', {});
+  const body = await response.json() as { success: boolean; code: string; errors: unknown[] };
+  assert.equal(response.status, 422);
+  assert.equal(body.success, false);
+  assert.equal(body.code, 'VALIDATION_ERROR');
+  assert.ok(Array.isArray(body.errors));
+  assert.ok(body.errors.length >= 2);
+});
+
+test('malformed JSON returns a traceable safe HTTP 400 instead of 500', async () => {
+  const response = await call('/api/v1/auth/login', null, { 'x-request-id': 'auth-invalid-json-test' }, 'POST', service, '{"email":');
+  const body = await response.json() as { code: string; message: string };
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.get('x-request-id'), 'auth-invalid-json-test');
+  assert.equal(body.code, 'INVALID_JSON');
+  assert.equal(body.message, 'Request body contains invalid JSON.');
+});
+
+test('unknown email is exposed as a safe HTTP 401', async () => {
+  const invalidService = { ...service, login: async () => { throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.'); } } as unknown as AuthService;
+  const response = await call('/api/v1/auth/login', { email: 'unknown@example.com', password: 'password-strong' }, {}, 'POST', invalidService);
+  const body = await response.text();
+  assert.equal(response.status, 401);
+  assert.equal(body.includes('stack'), false);
+  assert.equal(body.includes('password_hash'), false);
+});
+
+test('wrong password is exposed as the same safe HTTP 401', async () => {
+  const invalidService = { ...service, login: async () => { throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.'); } } as unknown as AuthService;
+  const response = await call('/api/v1/auth/login', { email: 'user@example.com', password: 'wrong-password' }, {}, 'POST', invalidService);
+  const body = await response.json() as { code: string; message: string };
+  assert.equal(response.status, 401);
+  assert.equal(body.code, 'INVALID_CREDENTIALS');
+  assert.equal(body.message, 'Invalid email or password.');
+});
+
+test('database failure returns a generic HTTP 500 without leaking internals', async () => {
+  const failingService = { ...service, login: async () => { throw new Error('SELECT password_hash FROM users failed'); } } as unknown as AuthService;
+  const response = await call('/api/v1/auth/login', { email: 'user@example.com', password: 'password-strong' }, {}, 'POST', failingService);
+  const body = await response.text();
+  assert.equal(response.status, 500);
+  assert.equal(body.includes('INTERNAL_SERVER_ERROR'), true);
+  assert.equal(body.includes('SELECT'), false);
+  assert.equal(body.includes('password_hash'), false);
+  assert.equal(body.includes('stack'), false);
 });
 
 test('Auth validator rejects unknown fields before the service boundary', async () => {

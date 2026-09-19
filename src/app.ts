@@ -43,6 +43,7 @@ export function createApp(dependencies: AppDependencies): Express {
 
   app.disable('x-powered-by');
   app.use(helmet());
+  app.use(requestIdMiddleware);
   app.use(express.json({ limit: '256kb', strict: true }));
   app.use((request, response, next) => {
     const origin = request.header('origin');
@@ -59,7 +60,6 @@ export function createApp(dependencies: AppDependencies): Express {
     }
     next();
   });
-  app.use(requestIdMiddleware);
   app.use((request, response, next) => {
     const startedAt = performance.now();
     response.on('finish', () => {
