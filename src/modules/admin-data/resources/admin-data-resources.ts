@@ -51,9 +51,14 @@ export const ADMIN_DATA_RESOURCES = Object.freeze([
 export type AdminDataResource = (typeof ADMIN_DATA_RESOURCES)[number];
 
 const resourceSet = new Set<string>(ADMIN_DATA_RESOURCES);
+const readOnlyResourceSet = new Set<AdminDataResource>(['user_feedback']);
 
 export function isAdminDataResource(value: string): value is AdminDataResource {
   return resourceSet.has(value);
+}
+
+export function isReadOnlyAdminDataResource(value: AdminDataResource): boolean {
+  return readOnlyResourceSet.has(value);
 }
 
 const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$)/i;

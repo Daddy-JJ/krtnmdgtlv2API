@@ -12,15 +12,22 @@ let writes = 0;
 const repository: SuperAdminRepository = {
   statistics: async () => ({}),
   user: async () => null,
+  card: async () => null,
   specialists: async () => [],
   subscriptions: async () => [],
   usage: async () => [],
   interventions: async () => [],
   settings: async () => [],
+  feedback: async (input) => ({ items: [], pagination: { page: input.page, limit: input.limit, total: 0, pages: 0 } }),
+  updateFeedbackStatus: async (_actor, publicId, input) => ({ publicId, status: input.status }),
+  reports: async () => ({}),
+  system: async () => ({}),
+  security: async () => ({}),
   intervene: async (_actor, _target, input) => {
     writes += 1;
     return { action: input.action, previousValue: null, newValue: input.roleCode ?? null };
   },
+  interveneCard: async (_actor, _target, input) => ({ action: input.action, previousOwnerPublicId: null, newOwnerPublicId: null }),
 };
 const rbac = {
   assert: async () => undefined,

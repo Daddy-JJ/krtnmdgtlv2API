@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   ADMIN_DATA_RESOURCES,
   isAdminDataResource,
+  isReadOnlyAdminDataResource,
   isSensitiveAdminDataColumn,
 } from '../../src/modules/admin-data/resources/admin-data-resources.ts';
 
@@ -14,6 +15,8 @@ test('admin data allowlist contains every non-internal database table exactly on
   assert.equal(isAdminDataResource('email_templates'), true);
   assert.equal(isAdminDataResource('schema_migrations'), false);
   assert.equal(isAdminDataResource('users; DROP TABLE users'), false);
+  assert.equal(isReadOnlyAdminDataResource('user_feedback'), true);
+  assert.equal(isReadOnlyAdminDataResource('users'), false);
 });
 
 test('credential and token material is classified as sensitive', () => {

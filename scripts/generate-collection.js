@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import mysql from 'mysql2/promise';
 import {
   ADMIN_DATA_RESOURCES,
+  isReadOnlyAdminDataResource,
   isSensitiveAdminDataColumn,
 } from '../src/modules/admin-data/resources/admin-data-resources.ts';
 
@@ -132,16 +133,19 @@ for (const resource of ADMIN_DATA_RESOURCES) {
     `  pm.collectionVariables.set('${variable}', value);`,
     '}',
   ];
+  const item = [
+    request(`List ${resource}`, 'GET', `/admin/data/${resource}?page=1&limit=20&order=desc`),
+    request(`Get ${resource}`, 'GET', `/admin/data/${resource}/{{${variable}}}`),
+  ];
+  if (!isReadOnlyAdminDataResource(resource)) item.push(
+    request(`Create ${resource}`, 'POST', `/admin/data/${resource}`, { body: createBody(columns), csrf: true, tests: createTests }),
+    request(`Update ${resource}`, 'PUT', `/admin/data/${resource}/{{${variable}}}`, { body: updateBody(columns), csrf: true }),
+    request(`Delete ${resource}`, 'DELETE', `/admin/data/${resource}/{{${variable}}}`, { csrf: true }),
+  );
   resourceItems.push({
     name: resource,
-    description: `Administrative CRUD for ${resource}. Primary key format: ${primaryKey.join('~')}.`,
-    item: [
-      request(`List ${resource}`, 'GET', `/admin/data/${resource}?page=1&limit=20&order=desc`),
-      request(`Get ${resource}`, 'GET', `/admin/data/${resource}/{{${variable}}}`),
-      request(`Create ${resource}`, 'POST', `/admin/data/${resource}`, { body: createBody(columns), csrf: true, tests: createTests }),
-      request(`Update ${resource}`, 'PUT', `/admin/data/${resource}/{{${variable}}}`, { body: updateBody(columns), csrf: true }),
-      request(`Delete ${resource}`, 'DELETE', `/admin/data/${resource}/{{${variable}}}`, { csrf: true }),
-    ],
+    description: `${isReadOnlyAdminDataResource(resource) ? 'Read-only administrative access' : 'Administrative CRUD'} for ${resource}. Primary key format: ${primaryKey.join('~')}.`,
+    item,
   });
 }
 
@@ -160,6 +164,8 @@ const collection = {
     { key: 'starterEmailToken', value: '' },
     { key: 'starterEmail', value: '' },
     { key: 'starterSlug', value: '' },
+    { key: 'feedbackPublicId', value: '' },
+    { key: 'adminCardPublicId', value: '' },
     ...identifierVariables,
   ],
   item: [
@@ -193,8 +199,29 @@ const collection = {
       ],
     },
     {
+      name: 'Super Admin Operations',
+      description: 'Purpose-specific operational endpoints. Mutations require CSRF, recent authentication, explicit confirmation, and an audit reason.',
+      item: [
+        request('Operational Statistics', 'GET', '/admin/statistics'),
+        request('Feedback Inbox', 'GET', '/admin/feedback?page=1&limit=25&status=new'),
+        request('Update Feedback Status', 'PATCH', '/admin/feedback/{{feedbackPublicId}}/status', {
+          csrf: true,
+          body: { status: 'in_review', reason: 'Feedback triaged by Super Admin.', confirm: true },
+        }),
+        request('Search Cards', 'GET', '/admin/cards?q='),
+        request('Card Detail', 'GET', '/admin/cards/{{adminCardPublicId}}'),
+        request('Connect Card to Matching Verified Account', 'POST', '/admin/cards/{{adminCardPublicId}}/interventions', {
+          csrf: true,
+          body: { action: 'CONNECT_MATCHING_VERIFIED_ACCOUNT', reason: 'Verified ownership recovery approved.', confirm: true },
+        }),
+        request('Operational Reports', 'GET', '/admin/reports?days=30'),
+        request('System Status', 'GET', '/admin/system'),
+        request('Security Status', 'GET', '/admin/security'),
+      ],
+    },
+    {
       name: 'Administrative Data CRUD',
-      description: 'Run Admin Login and Issue CSRF Token first. Composite primary keys use ~ between key components.',
+      description: 'Run Admin Login and Issue CSRF Token first. Composite primary keys use ~ between key components. user_feedback is intentionally read-only here; use Super Admin Operations to update workflow status.',
       item: [request('Resource Catalog', 'GET', '/admin/data'), ...resourceItems],
     },
   ],

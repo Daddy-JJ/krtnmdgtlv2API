@@ -79,3 +79,15 @@ test('admin data mutations require CSRF and support create, update, and delete',
   assert.equal((await call('DELETE', '/api/v1/admin/data/users/2', undefined, 'valid')).status, 200);
   assert.deepEqual(mutations, ['create:users', 'update:users:2', 'delete:users:2']);
 });
+
+test('user feedback remains readable through generic admin data but rejects generic mutations', async () => {
+  allowed = true;
+  mutations.length = 0;
+  assert.equal((await call('GET', '/api/v1/admin/data/user_feedback')).status, 200);
+  const create = await call('POST', '/api/v1/admin/data/user_feedback', { message: 'must use the feedback workflow' }, 'valid');
+  assert.equal(create.status, 405);
+  assert.equal(((await create.json()) as { code: string }).code, 'RESOURCE_READ_ONLY');
+  assert.equal((await call('PUT', '/api/v1/admin/data/user_feedback/1', { status: 'resolved' }, 'valid')).status, 405);
+  assert.equal((await call('DELETE', '/api/v1/admin/data/user_feedback/1', undefined, 'valid')).status, 405);
+  assert.deepEqual(mutations, []);
+});

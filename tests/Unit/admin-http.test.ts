@@ -1,4 +1,84 @@
-import assert from'node:assert/strict';import type{AddressInfo}from'node:net';import test from'node:test';import{createApp}from'../../src/app.ts';import{AdminController}from'../../src/modules/admin/controllers/admin-controller.ts';import{createAdminRouter}from'../../src/modules/admin/routes/admin-router.ts';import type{AdminService}from'../../src/modules/admin/services/admin-service.ts';import{AppError}from'../../src/shared/http/errors.ts';import type{AuthenticatedActorService}from'../../src/shared/security/authenticated-actor.ts';import type{Logger}from'../../src/shared/logging/logger.ts';
-let role:'user'|'admin'='user',updates=0;const service={listPlans:async()=>[],listPayments:async()=>[],updatePlan:async()=>{updates++;return{code:'basic'};}}as unknown as AdminService;const actors={authenticate:()=>({userPublicId:'actor',sessionId:'s',role}),authorizeUnsafe:(_token:string|undefined,csrf:string|undefined)=>{if(csrf!=='valid')throw new AppError(403,'CSRF_INVALID','CSRF invalid.');return{userPublicId:'actor',sessionId:'s',role};}}as unknown as AuthenticatedActorService;const rbac={assert:async()=>{if(role!=='admin')throw new AppError(403,'PERMISSION_REQUIRED','Required permission is missing.');}}as any;const logger:Logger={info:()=>undefined,error:()=>undefined};async function call(method:string,path:string,body?:unknown,csrf?:string){const app=createApp({databaseHealth:{check:async()=>({healthy:true,latencyMs:0})},environment:'testing',logger,adminRouter:createAdminRouter(new AdminController(service,actors,rbac))});const server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));try{return await fetch(`http://127.0.0.1:${(server.address()as AddressInfo).port}${path}`,{method,headers:{cookie:'access_token=x',...(csrf?{'x-csrf-token':csrf}:{}),...(body?{'content-type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});}finally{await new Promise<void>((r,j)=>server.close(e=>e?j(e):r()));}}
-test('admin reads require admin role',async()=>{role='user';assert.equal((await call('GET','/api/v1/admin/plans')).status,403);role='admin';assert.equal((await call('GET','/api/v1/admin/plans')).status,200);assert.equal((await call('GET','/api/v1/admin/payments')).status,200);});
-test('admin plan mutation requires CSRF, reason, and preserves annual duration',async()=>{role='admin';updates=0;assert.equal((await call('PUT','/api/v1/admin/plans/basic',{price:100000,reason:'Approved pricing update'})).status,403);assert.equal((await call('PUT','/api/v1/admin/plans/basic',{price:100000,features:{logo_enabled:true},reason:'Approved pricing update'},'valid')).status,422);assert.equal((await call('PUT','/api/v1/admin/plans/basic',{durationDays:30,reason:'Attempt invalid duration drift'},'valid')).status,422);assert.equal((await call('PUT','/api/v1/admin/plans/basic',{price:100000,durationDays:365,reason:'Approved annual pricing update'},'valid')).status,200);assert.equal(updates,1);});
+import assert from 'node:assert/strict';
+import type { AddressInfo } from 'node:net';
+import test from 'node:test';
+import { createApp } from '../../src/app.ts';
+import { AdminController } from '../../src/modules/admin/controllers/admin-controller.ts';
+import { createAdminRouter } from '../../src/modules/admin/routes/admin-router.ts';
+import type { AdminService } from '../../src/modules/admin/services/admin-service.ts';
+import { AppError } from '../../src/shared/http/errors.ts';
+import type { AuthenticatedActorService } from '../../src/shared/security/authenticated-actor.ts';
+import type { Logger } from '../../src/shared/logging/logger.ts';
+
+let role: 'user' | 'admin' = 'user';
+let updates = 0;
+let cardQuery = '';
+const service = {
+  listPlans: async () => [],
+  listPayments: async () => [],
+  listCards: async (query: string) => { cardQuery = query; return []; },
+  updatePlan: async () => { updates += 1; return { code: 'basic' }; },
+} as unknown as AdminService;
+const actors = {
+  authenticate: () => ({ userPublicId: 'actor', sessionId: 's', role }),
+  authorizeUnsafe: (_token: string | undefined, csrf: string | undefined) => {
+    if (csrf !== 'valid') throw new AppError(403, 'CSRF_INVALID', 'CSRF invalid.');
+    return { userPublicId: 'actor', sessionId: 's', role };
+  },
+} as unknown as AuthenticatedActorService;
+const rbac = {
+  assert: async () => {
+    if (role !== 'admin') throw new AppError(403, 'PERMISSION_REQUIRED', 'Required permission is missing.');
+  },
+} as any;
+const logger: Logger = { info: () => undefined, error: () => undefined };
+
+async function call(method: string, path: string, body?: unknown, csrf?: string) {
+  const app = createApp({
+    databaseHealth: { check: async () => ({ healthy: true, latencyMs: 0 }) },
+    environment: 'testing',
+    logger,
+    adminRouter: createAdminRouter(new AdminController(service, actors, rbac)),
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  try {
+    return await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}${path}`, {
+      method,
+      headers: {
+        cookie: 'access_token=x',
+        ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        ...(body ? { 'content-type': 'application/json' } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+}
+
+test('admin reads require admin role', async () => {
+  role = 'user';
+  assert.equal((await call('GET', '/api/v1/admin/plans')).status, 403);
+  role = 'admin';
+  assert.equal((await call('GET', '/api/v1/admin/plans')).status, 200);
+  assert.equal((await call('GET', '/api/v1/admin/payments')).status, 200);
+});
+
+test('admin card search forwards a trimmed query to the service', async () => {
+  role = 'admin';
+  cardQuery = '';
+  const response = await call('GET', '/api/v1/admin/cards?q=%20Arwan%20');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(cardQuery, 'Arwan');
+});
+
+test('admin plan mutation requires CSRF, reason, and preserves annual duration', async () => {
+  role = 'admin';
+  updates = 0;
+  assert.equal((await call('PUT', '/api/v1/admin/plans/basic', { price: 100000, reason: 'Approved pricing update' })).status, 403);
+  assert.equal((await call('PUT', '/api/v1/admin/plans/basic', { price: 100000, features: { logo_enabled: true }, reason: 'Approved pricing update' }, 'valid')).status, 422);
+  assert.equal((await call('PUT', '/api/v1/admin/plans/basic', { durationDays: 30, reason: 'Attempt invalid duration drift' }, 'valid')).status, 422);
+  assert.equal((await call('PUT', '/api/v1/admin/plans/basic', { price: 100000, durationDays: 365, reason: 'Approved annual pricing update' }, 'valid')).status, 200);
+  assert.equal(updates, 1);
+});

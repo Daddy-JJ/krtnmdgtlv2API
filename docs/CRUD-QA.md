@@ -7,10 +7,12 @@ backend Express, alat uji API, dan frontend. Seluruh perintah dijalankan dari
 ## Cakupan
 
 Database saat ini memiliki 47 tabel aplikasi. Semua tabel tersebut terdaftar
-sebagai resource CRUD. Tabel `schema_migrations` adalah metadata internal milik
+sebagai resource administratif. `user_feedback` bersifat read-only pada generic
+API dan perubahan status memakai endpoint workflow Super Admin khusus. Tabel
+`schema_migrations` adalah metadata internal milik
 migration runner sehingga sengaja tidak diekspos sebagai REST API.
 
-Setiap resource menggunakan pola endpoint yang sama:
+Resource mutable menggunakan pola endpoint yang sama:
 
 ```text
 GET    /api/v1/admin/data/:resource
@@ -23,6 +25,8 @@ DELETE /api/v1/admin/data/:resource/:id
 GET memerlukan permission `data.read`. POST, PUT, dan DELETE memerlukan
 `data.manage` serta CSRF header/cookie yang valid. Kolom credential, password,
 token, OTP, secret, dan hash tidak dikembalikan oleh API.
+Untuk `user_feedback`, hanya dua GET generic yang tersedia; POST, PUT, dan
+DELETE menghasilkan HTTP 405 `RESOURCE_READ_ONLY`.
 
 ## Source of truth yang dihasilkan
 
@@ -39,7 +43,7 @@ npm run contracts:generate
 ```
 
 Generator berhenti dengan error bila ada tabel aplikasi yang belum memiliki
-resource CRUD atau resource yang tidak ada di database.
+resource administratif atau resource yang tidak ada di database.
 
 ## QA otomatis
 
@@ -54,7 +58,7 @@ Perintah tersebut:
 
 1. membuat ulang schema reference dan collection;
 2. menjalankan TypeScript typecheck;
-3. menguji allowlist, metode CRUD, authorization, CSRF, dan sinkronisasi file;
+3. menguji allowlist, metode CRUD/read-only policy, authorization, CSRF, dan sinkronisasi file;
 4. menjalankan integration preflight terhadap database lokal;
 5. membuat ulang database `_test`, menjalankan migration dan seed dua kali;
 6. memastikan seluruh 47 tabel aplikasi berisi data.

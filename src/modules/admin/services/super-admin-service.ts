@@ -1,6 +1,12 @@
 import { AppError } from '../../../shared/http/errors.ts';
 import type { RbacService } from '../../../shared/security/rbac-service.ts';
-import type { Intervention, SuperAdminRepository } from '../repositories/super-admin-repository.ts';
+import type {
+  CardIntervention,
+  FeedbackListInput,
+  FeedbackStatusUpdate,
+  Intervention,
+  SuperAdminRepository,
+} from '../repositories/super-admin-repository.ts';
 
 const CANONICAL_ROLES = new Set([
   'member',
@@ -30,6 +36,13 @@ export class SuperAdminService {
     return user;
   }
 
+  async card(actor: string, publicId: string) {
+    await this.#rbac.assert(actor, 'users.read');
+    const card = await this.#repository.card(publicId);
+    if (!card) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Card was not found.');
+    return card;
+  }
+
   async specialists(actor: string) {
     await this.#rbac.assert(actor, 'specialists.manage');
     return this.#repository.specialists();
@@ -55,6 +68,31 @@ export class SuperAdminService {
     return this.#repository.settings();
   }
 
+  async feedback(actor: string, input: FeedbackListInput) {
+    await this.#rbac.assert(actor, 'data.read');
+    return this.#repository.feedback(input);
+  }
+
+  async updateFeedbackStatus(actor: string, publicId: string, input: FeedbackStatusUpdate, correlationId: string | null) {
+    await this.#rbac.assert(actor, 'data.manage');
+    return this.#repository.updateFeedbackStatus(actor, publicId, input, correlationId);
+  }
+
+  async reports(actor: string, days: number) {
+    await this.#rbac.assert(actor, 'statistics.read');
+    return this.#repository.reports(days);
+  }
+
+  async system(actor: string) {
+    await this.#rbac.assert(actor, 'audit.read');
+    return { ...(await this.#repository.system()), runtimeVersion: process.version };
+  }
+
+  async security(actor: string) {
+    await this.#rbac.assert(actor, 'security.read');
+    return this.#repository.security();
+  }
+
   async intervene(actor: string, targetPublicId: string, input: Intervention, correlationId: string | null) {
     const permission = input.action === 'EXTEND_SUBSCRIPTION'
       ? 'subscriptions.intervene'
@@ -64,6 +102,11 @@ export class SuperAdminService {
     await this.#rbac.assert(actor, permission);
     this.#validateIntervention(input);
     return this.#repository.intervene(actor, targetPublicId, input, correlationId);
+  }
+
+  async interveneCard(actor: string, cardPublicId: string, input: CardIntervention, correlationId: string | null) {
+    await this.#rbac.assert(actor, 'users.manage');
+    return this.#repository.interveneCard(actor, cardPublicId, input, correlationId);
   }
 
   #validateIntervention(input: Intervention): void {

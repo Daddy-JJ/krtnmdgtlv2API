@@ -31,6 +31,18 @@ path.
 Missing, unpublished, inactive-theme, wrong-case, or malformed slugs use the
 non-enumerating card-not-found contract. Renderer failures return a safe 503.
 
+## Super Admin boundary
+
+Workspace Super Admin memakai endpoint domain untuk feedback, card recovery,
+reports, system, security, mail, template, landing page, dan Resume Service.
+Generic `/admin/data` bukan business workflow. `user_feedback` read-only pada
+generic data API; status feedback hanya dapat berubah melalui endpoint khusus
+yang memerlukan CSRF, recent authentication, alasan, dan immutable audit.
+
+Semua read model operasional disanitasi. Secret, credential, token/hash,
+internal storage path, isi file Resume Service, dan stack trace tidak menjadi
+bagian kontrak dashboard.
+
 ## Slug ownership
 
 Starter allocation is backend-only: exactly `[A-Za-z]{7}`, case-sensitive,

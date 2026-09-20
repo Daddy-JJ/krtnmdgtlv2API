@@ -34,8 +34,10 @@ import { MySqlPaymentRepository } from '../../src/modules/payments/repositories/
 import { PaymentService } from '../../src/modules/payments/services/payment-service.ts';
 import type { PaymentGatewayPort } from '../../src/modules/payments/gateways/payment-gateway-port.ts';
 import { MySqlAdminRepository } from '../../src/modules/admin/repositories/mysql-admin-repository.ts';
+import { MySqlSuperAdminRepository } from '../../src/modules/admin/repositories/mysql-super-admin-repository.ts';
 import { MySqlAdminDataRepository } from '../../src/modules/admin-data/repositories/mysql-admin-data-repository.ts';
 import { AdminService } from '../../src/modules/admin/services/admin-service.ts';
+import { MySqlFeedbackRepository } from '../../src/modules/feedback/repositories/mysql-feedback-repository.ts';
 import { MySqlEmailTemplateRepository } from '../../src/modules/email/templates/mysql-email-template-repository.ts';
 import { defaults } from '../../src/modules/email/templates/template-content.ts';
 import { ADMIN_DATA_RESOURCES } from '../../src/modules/admin-data/resources/admin-data-resources.ts';
@@ -360,6 +362,36 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.equal(updatedTheme.code, 'starter-clean'); assert.ok((await admin.listActivity()).some(entry => entry.event === 'admin.theme-updated'));
     const [adminAudit] = await pool.execute<Array<RowDataPacket & { count: number }>>(`SELECT COUNT(*) count FROM activity_logs a JOIN users u ON u.id=a.user_id WHERE a.event='admin.plan-updated' AND u.public_id=?`, [claimSession.user.publicId]);
     assert.equal(Number(adminAudit[0]?.count), 1);
+
+    const superAdmin = new MySqlSuperAdminRepository(pool);
+    const feedbackPublicId = randomUUID();
+    assert.equal(await new MySqlFeedbackRepository(pool).create(paidUser.public_id, feedbackPublicId, 'Integration feedback inbox item', new Date()), true);
+    assert.equal((await superAdmin.feedback({ page: 1, limit: 10, status: 'new', search: 'Integration feedback' })).items[0]?.publicId, feedbackPublicId);
+    assert.deepEqual(
+      await superAdmin.updateFeedbackStatus(claimSession.user.publicId, feedbackPublicId, { status: 'in_review', reason: 'Integration triage verification' }, 'integration-feedback-request'),
+      { publicId: feedbackPublicId, previousStatus: 'new', status: 'in_review' },
+    );
+    await assert.rejects(
+      () => superAdmin.updateFeedbackStatus(claimSession.user.publicId, feedbackPublicId, { status: 'in_review', reason: 'Duplicate integration triage' }, 'integration-feedback-request-2'),
+      { code: 'FEEDBACK_STATUS_UNCHANGED' },
+    );
+
+    const recoveryStarter = await starter.create({ ...starterInput, contact: { ...starterInput.contact, email: paidEmail } }, 'admin-card-recovery-client');
+    assert.equal((await superAdmin.card(recoveryStarter.card.publicId))?.owner, null);
+    const connected = await superAdmin.interveneCard(claimSession.user.publicId, recoveryStarter.card.publicId, {
+      action: 'CONNECT_MATCHING_VERIFIED_ACCOUNT', reason: 'Integration ownership recovery verification',
+    }, 'integration-card-connect');
+    assert.equal(connected.newOwnerPublicId, paidUser.public_id);
+    await assert.rejects(() => starter.signupContext(recoveryStarter.card.publicId, recoveryStarter.manageToken), { code: 'STARTER_TOKEN_INVALID' });
+    const released = await superAdmin.interveneCard(claimSession.user.publicId, recoveryStarter.card.publicId, {
+      action: 'RELEASE_CARD', reason: 'Integration ownership release verification',
+    }, 'integration-card-release');
+    assert.equal(released.previousOwnerPublicId, paidUser.public_id);
+    assert.equal(released.newOwnerPublicId, null);
+    assert.ok((await superAdmin.card(recoveryStarter.card.publicId))?.audit instanceof Array);
+    assert.equal((await superAdmin.reports(30)).days, 30);
+    assert.equal((await superAdmin.system()).database, 'available');
+    assert.ok(Object.hasOwn(await superAdmin.security(), 'summary'));
 
     const adminData = new MySqlAdminDataRepository(pool);
     const adminDataCatalog = await adminData.catalog();

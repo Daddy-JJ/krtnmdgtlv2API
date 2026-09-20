@@ -104,6 +104,8 @@ CRUD tabel administratif berada di `/api/v1/admin/data`. Akses baca memerlukan
 permission `data.read`; POST, PUT, dan DELETE memerlukan `data.manage` serta
 header CSRF. Tabel internal `schema_migrations` tidak diekspos dan nilai kolom
 password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
+`user_feedback` sengaja read-only pada generic CRUD; triage status memakai
+endpoint Super Admin khusus dan selalu diaudit.
 
 Starter signup prefill tersedia melalui read-only
 `GET /api/v1/starter/cards/:publicId/signup-context` setelah pertukaran email
@@ -126,6 +128,7 @@ content-addressed serta ETag.
 - [Role and access reference](./docs/ROLES.md)
 - [Starter email and access contract](./docs/STARTER-EMAIL.md)
 - [Transactional email template management](./docs/EMAIL-TEMPLATES.md)
+- [Super Admin operations and feedback workflow](./docs/SUPER-ADMIN.md)
 - [Startup dan bootloop recovery](./docs/STARTUP-RECOVERY.md)
 - [Production hosting baseline](./docs/HOSTING.md)
 - [Dependency policy](./dependency-requirements.md)

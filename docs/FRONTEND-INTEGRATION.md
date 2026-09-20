@@ -156,6 +156,24 @@ Frontend pengguna harus memakai endpoint domain seperti `/auth`, `/me`,
 memakai generic CRUD sebagai shortcut untuk fitur end-user karena endpoint
 domain menerapkan ownership dan aturan bisnis yang lebih kuat.
 
+Untuk workspace Super Admin gunakan endpoint domain operasional:
+
+```text
+GET   /admin/feedback?page=1&limit=25&status=new
+PATCH /admin/feedback/{publicId}/status
+GET   /admin/cards?q={search}
+GET   /admin/cards/{publicId}
+POST  /admin/cards/{publicId}/interventions
+GET   /admin/reports?days=30
+GET   /admin/system
+GET   /admin/security
+```
+
+Jangan membuat atau menghapus feedback melalui `/admin/data/user_feedback`.
+Generic resource tersebut read-only; perubahan workflow hanya melalui PATCH
+status dengan CSRF, recent authentication, konfirmasi, dan alasan. Kontrak menu
+lengkap tersedia di `docs/SUPER-ADMIN.md`.
+
 ## Starter signup handoff
 
 Setelah `POST /starter/access` berhasil, panggil:

@@ -16,8 +16,15 @@ export function createAdminRouter(controller: AdminController, superAdmin?: Supe
   router.get('/activity', controller.activity);
   if (superAdmin) {
     router.get('/statistics', superAdmin.statistics);
+    router.get('/feedback', superAdmin.feedback);
+    router.patch('/feedback/:publicId/status', superAdmin.updateFeedbackStatus);
+    router.get('/reports', superAdmin.reports);
+    router.get('/system', superAdmin.system);
+    router.get('/security', superAdmin.security);
     router.get('/users/:publicId', superAdmin.user);
     router.post('/users/:publicId/interventions', superAdmin.intervene);
+    router.get('/cards/:publicId', superAdmin.card);
+    router.post('/cards/:publicId/interventions', superAdmin.interveneCard);
     router.get('/cv-specialists', superAdmin.specialists);
     router.get('/subscriptions', superAdmin.subscriptions);
     router.get('/usage', superAdmin.usage);

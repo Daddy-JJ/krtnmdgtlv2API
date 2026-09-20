@@ -4,7 +4,7 @@ import { readCookie } from '../../../shared/http/cookie-reader.ts';
 import type { AuthenticatedActorService } from '../../../shared/security/authenticated-actor.ts';
 import type { RbacService } from '../../../shared/security/rbac-service.ts';
 import type { AdminDataListInput, AdminDataRepository } from '../repositories/admin-data-repository.ts';
-import { isAdminDataResource, type AdminDataResource } from '../resources/admin-data-resources.ts';
+import { isAdminDataResource, isReadOnlyAdminDataResource, type AdminDataResource } from '../resources/admin-data-resources.ts';
 
 function objectBody(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -59,7 +59,8 @@ export class AdminDataController {
   create = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#authenticate(request, true);
     await this.#rbac.assert(actor.userPublicId, 'data.manage');
-    const data = await this.#repository.create(this.#resource(request), objectBody(request.body), {
+    const resource = this.#mutableResource(request);
+    const data = await this.#repository.create(resource, objectBody(request.body), {
       actorPublicId: actor.userPublicId,
       requestId: this.#requestId(response),
     });
@@ -69,7 +70,8 @@ export class AdminDataController {
   update = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#authenticate(request, true);
     await this.#rbac.assert(actor.userPublicId, 'data.manage');
-    const data = await this.#repository.update(this.#resource(request), this.#identifier(request), objectBody(request.body), {
+    const resource = this.#mutableResource(request);
+    const data = await this.#repository.update(resource, this.#identifier(request), objectBody(request.body), {
       actorPublicId: actor.userPublicId,
       requestId: this.#requestId(response),
     });
@@ -79,7 +81,8 @@ export class AdminDataController {
   delete = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#authenticate(request, true);
     await this.#rbac.assert(actor.userPublicId, 'data.manage');
-    const data = await this.#repository.delete(this.#resource(request), this.#identifier(request), {
+    const resource = this.#mutableResource(request);
+    const data = await this.#repository.delete(resource, this.#identifier(request), {
       actorPublicId: actor.userPublicId,
       requestId: this.#requestId(response),
     });
@@ -96,6 +99,14 @@ export class AdminDataController {
   #resource(request: Request): AdminDataResource {
     const resource = String(request.params.resource ?? '');
     if (!isAdminDataResource(resource)) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'Administrative data resource was not found.');
+    return resource;
+  }
+
+  #mutableResource(request: Request): AdminDataResource {
+    const resource = this.#resource(request);
+    if (isReadOnlyAdminDataResource(resource)) {
+      throw new AppError(405, 'RESOURCE_READ_ONLY', 'This administrative data resource is read-only.');
+    }
     return resource;
   }
 

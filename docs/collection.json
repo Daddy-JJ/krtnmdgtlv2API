@@ -38,6 +38,14 @@
       "value": ""
     },
     {
+      "key": "feedbackPublicId",
+      "value": ""
+    },
+    {
+      "key": "adminCardPublicId",
+      "value": ""
+    },
+    {
       "key": "activityLogsIdentifier",
       "value": "1"
     },
@@ -452,8 +460,221 @@
       ]
     },
     {
+      "name": "Super Admin Operations",
+      "description": "Purpose-specific operational endpoints. Mutations require CSRF, recent authentication, explicit confirmation, and an audit reason.",
+      "item": [
+        {
+          "name": "Operational Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/statistics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "statistics"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Feedback Inbox",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/feedback?page=1&limit=25&status=new",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "feedback?page=1&limit=25&status=new"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Update Feedback Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/feedback/{{feedbackPublicId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "feedback",
+                "{{feedbackPublicId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_review\",\n  \"reason\": \"Feedback triaged by Super Admin.\",\n  \"confirm\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Search Cards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cards?q=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cards?q="
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Card Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cards/{{adminCardPublicId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cards",
+                "{{adminCardPublicId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Connect Card to Matching Verified Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/cards/{{adminCardPublicId}}/interventions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "cards",
+                "{{adminCardPublicId}}",
+                "interventions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"CONNECT_MATCHING_VERIFIED_ACCOUNT\",\n  \"reason\": \"Verified ownership recovery approved.\",\n  \"confirm\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Operational Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reports?days=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reports?days=30"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "System Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/system",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "system"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Security Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/security",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "security"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
       "name": "Administrative Data CRUD",
-      "description": "Run Admin Login and Issue CSRF Token first. Composite primary keys use ~ between key components.",
+      "description": "Run Admin Login and Issue CSRF Token first. Composite primary keys use ~ between key components. user_feedback is intentionally read-only here; use Super Admin Operations to update workflow status.",
       "item": [
         {
           "name": "Resource Catalog",
@@ -7570,7 +7791,7 @@
         },
         {
           "name": "user_feedback",
-          "description": "Administrative CRUD for user_feedback. Primary key format: id.",
+          "description": "Read-only administrative access for user_feedback. Primary key format: id.",
           "item": [
             {
               "name": "List user_feedback",
@@ -7596,126 +7817,6 @@
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": {
-                  "raw": "{{baseUrl}}/admin/data/user_feedback/{{userFeedbackIdentifier}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "data",
-                    "user_feedback",
-                    "{{userFeedbackIdentifier}}"
-                  ]
-                },
-                "description": ""
-              }
-            },
-            {
-              "name": "Create user_feedback",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "X-CSRF-Token",
-                    "value": "{{csrfToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/admin/data/user_feedback",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "data",
-                    "user_feedback"
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"user_id\": 1,\n  \"message\": \"example\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "description": ""
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "type": "text/javascript",
-                    "exec": [
-                      "if (pm.response.code === 201) {",
-                      "  const data = pm.response.json().data;",
-                      "  const value = [\"id\"].map((key) => encodeURIComponent(String(data[key]))).join('~');",
-                      "  pm.collectionVariables.set('userFeedbackIdentifier', value);",
-                      "}"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "Update user_feedback",
-              "request": {
-                "method": "PUT",
-                "header": [
-                  {
-                    "key": "X-CSRF-Token",
-                    "value": "{{csrfToken}}",
-                    "type": "text"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json",
-                    "type": "text"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/admin/data/user_feedback/{{userFeedbackIdentifier}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "admin",
-                    "data",
-                    "user_feedback",
-                    "{{userFeedbackIdentifier}}"
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"public_id\": \"00000000-0000-4000-8000-000000000001\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "description": ""
-              }
-            },
-            {
-              "name": "Delete user_feedback",
-              "request": {
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "X-CSRF-Token",
-                    "value": "{{csrfToken}}",
-                    "type": "text"
-                  }
-                ],
                 "url": {
                   "raw": "{{baseUrl}}/admin/data/user_feedback/{{userFeedbackIdentifier}}",
                   "host": [
