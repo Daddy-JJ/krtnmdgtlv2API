@@ -32,7 +32,15 @@ export class PasswordResetMailWorker {
       await this.#send(job.email,`${this.#appUrl}/reset-password/?token=${encodeURIComponent(issued.plaintext)}`,job.templateVersion);
       await this.#outbox.markSent(job);
       return true;
-    } catch {
+    } catch (error) {
+      const details = error && typeof error === 'object' ? error as { code?: unknown; responseCode?: unknown; command?: unknown } : {};
+      process.stderr.write(`${JSON.stringify({
+        event: 'mail.delivery_failed',
+        outboxId: job.id,
+        code: typeof details.code === 'string' ? details.code : 'UNKNOWN',
+        responseCode: typeof details.responseCode === 'number' ? details.responseCode : null,
+        command: typeof details.command === 'string' ? details.command : null,
+      })}\n`);
       await this.#outbox.markFailed(job);
       return false;
     }

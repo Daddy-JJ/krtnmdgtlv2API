@@ -67,8 +67,7 @@ export class AuthController {
     const accessToken = readCookie(request, 'access_token');
     const csrfToken = request.header('x-csrf-token');
     if (!accessToken) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required.');
-    if (!csrfToken) throw new AppError(403, 'CSRF_INVALID', 'CSRF validation failed.');
-    await this.#service.logout(accessToken, csrfToken);
+    await this.#service.logout(accessToken, csrfToken ?? '');
     response.clearCookie('access_token', this.#cookies.clear('/api/v1'));
     response.clearCookie('refresh_token', this.#cookies.clear('/api/v1/auth'));
     response.clearCookie('csrf_token', this.#cookies.clear('/', false));

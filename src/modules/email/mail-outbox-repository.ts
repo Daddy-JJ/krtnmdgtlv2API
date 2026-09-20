@@ -1,4 +1,4 @@
-import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
+import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
 export type PasswordResetJob = Readonly<{ id: number; userId: number; email: string; attempts: number; maxAttempts: number; templateVersion:number|null }>;
 export type ResumeMailJob=PasswordResetJob&Readonly<{templateKey:string;subject:string;payloadText:string|null}>;
@@ -6,6 +6,16 @@ export type ResumeMailJob=PasswordResetJob&Readonly<{templateKey:string;subject:
 export class MySqlMailOutboxRepository {
   readonly #pool: Pool;
   constructor(pool: Pool) { this.#pool = pool; }
+  async requeueStaleProcessing(now = new Date(), staleAfterMs = 10 * 60_000): Promise<number> {
+    const cutoff = new Date(now.getTime() - staleAfterMs);
+    const [result] = await this.#pool.execute<ResultSetHeader>(
+      `UPDATE mail_outbox
+       SET status = 'queued', locked_at = NULL, available_at = ?, updated_at = ?
+       WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at <= ?`,
+      [now, now, cutoff],
+    );
+    return Number(result.affectedRows);
+  }
 
   async claimPasswordReset(now = new Date()): Promise<PasswordResetJob | null> {
     const connection = await this.#pool.getConnection();

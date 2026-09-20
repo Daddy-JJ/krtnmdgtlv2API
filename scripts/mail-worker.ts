@@ -20,10 +20,13 @@ const mailer = new CpanelSmtpMailer({
   verifyPeer: environment.MAIL_VERIFY_PEER,
 });
 const templates=new MySqlEmailTemplateRepository(pool),templateSource=environment.EMAIL_TEMPLATES_ENABLED?templates:{published:async(key:TemplateKey)=>({content:defaults(key),version:null})},delivery=new EmailTemplateDelivery({repository:templateSource,mailer,appUrl:environment.APP_URL});
-const worker = new PasswordResetMailWorker({ outbox: new MySqlMailOutboxRepository(pool), auth: new MySqlAuthRepository(pool), tokens: new OpaqueTokenService(), delivery, appUrl: environment.APP_URL });
-const resumeWorker=new ResumeNotificationMailWorker({outbox:new MySqlMailOutboxRepository(pool),delivery,appUrl:environment.APP_URL});
+const outbox = new MySqlMailOutboxRepository(pool);
+const worker = new PasswordResetMailWorker({ outbox, auth: new MySqlAuthRepository(pool), tokens: new OpaqueTokenService(), delivery, appUrl: environment.APP_URL });
+const resumeWorker=new ResumeNotificationMailWorker({outbox,delivery,appUrl:environment.APP_URL});
 
 try {
+  const recovered = await outbox.requeueStaleProcessing();
+  if (recovered > 0) process.stdout.write(`Requeued ${recovered} stale mail job(s).\n`);
   let processed = 0;
   while (processed < 50 && await worker.runOnce()) processed += 1;
   while(processed<50&&await resumeWorker.runOnce())processed+=1;

@@ -120,7 +120,8 @@ export class AuthService {
 
   async logout(accessToken: string, csrfToken: string): Promise<void> {
     const claims = this.#accessTokens.verify(accessToken);
-    if (!claims || !this.#csrf.verify(csrfToken, claims.sid)) throw new AppError(403, 'CSRF_INVALID', 'CSRF validation failed.');
+    if (!claims) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required.');
+    if (!this.#csrf.verify(csrfToken, claims.sid)) throw new AppError(403, 'CSRF_INVALID', 'CSRF validation failed.');
     await this.#repository.transaction((transaction) => transaction.revokeRefreshFamily(claims.sid, new Date()));
   }
 
