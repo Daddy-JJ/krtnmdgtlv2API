@@ -7,26 +7,23 @@ backend Express, alat uji API, dan frontend. Seluruh perintah dijalankan dari
 ## Cakupan
 
 Database saat ini memiliki 47 tabel aplikasi. Semua tabel tersebut terdaftar
-sebagai resource administratif. `user_feedback` bersifat read-only pada generic
-API dan perubahan status memakai endpoint workflow Super Admin khusus. Tabel
+sebagai resource administratif read-only. Mutasi memakai endpoint workflow
+domain/Super Admin khusus, bukan penulisan tabel generik. Tabel
 `schema_migrations` adalah metadata internal milik
 migration runner sehingga sengaja tidak diekspos sebagai REST API.
 
-Resource mutable menggunakan pola endpoint yang sama:
+Resource generic menggunakan endpoint berikut:
 
 ```text
 GET    /api/v1/admin/data/:resource
 GET    /api/v1/admin/data/:resource/:id
-POST   /api/v1/admin/data/:resource
-PUT    /api/v1/admin/data/:resource/:id
-DELETE /api/v1/admin/data/:resource/:id
 ```
 
-GET memerlukan permission `data.read`. POST, PUT, dan DELETE memerlukan
-`data.manage` serta CSRF header/cookie yang valid. Kolom credential, password,
-token, OTP, secret, dan hash tidak dikembalikan oleh API.
-Untuk `user_feedback`, hanya dua GET generic yang tersedia; POST, PUT, dan
-DELETE menghasilkan HTTP 405 `RESOURCE_READ_ONLY`.
+GET memerlukan sesi aktif dan permission `data.read`. POST, PUT, DELETE generik
+menghasilkan HTTP 405 `RESOURCE_READ_ONLY` setelah pemeriksaan izin, CSRF, dan
+recent-auth (request tanpa otorisasi tetap 401/403). Repository juga menolak
+mutasi secara langsung. Kolom credential/token/hash serta payload internal
+tidak dikembalikan dan tidak dapat dipakai sebagai filter, pencarian atau sort.
 
 ## Source of truth yang dihasilkan
 
@@ -47,7 +44,7 @@ resource administratif atau resource yang tidak ada di database.
 
 ## QA otomatis
 
-Pastikan `.env.test` menunjuk database khusus yang berbeda dari database utama
+Pastikan `TEST_DB_*` di `.env` menunjuk database khusus yang berbeda dari database utama
 dan namanya berakhiran `_test`, lalu jalankan:
 
 ```powershell
@@ -91,19 +88,17 @@ sudah berisi data manual yang penting.
 3. Pastikan variable `baseUrl` adalah `http://127.0.0.1:3000/api/v1`.
 4. Jalankan request login untuk user yang memiliki permission administratif.
 5. Simpan cookie session dan CSRF sesuai response login.
-6. Jalankan folder resource: List, Get, Create, Update, lalu Delete.
+6. Jalankan folder resource: List dan Get. Untuk mutasi gunakan folder endpoint domain yang sesuai.
 
-Payload Create/Update di collection dibuat dari metadata kolom aktual. Nilai
-foreign key adalah contoh kontrak dan harus menunjuk record parent yang benar
-pada database target. Gunakan List pada resource parent atau dummy seed untuk
-menentukan nilai yang valid.
+Nama folder `Administrative Data CRUD` dipertahankan untuk kompatibilitas import,
+tetapi isinya sekarang hanya request read-only untuk seluruh 47 tabel.
 
 ## Kriteria lulus integrasi frontend
 
-- Health endpoint mengembalikan HTTP 200 dan database `available`.
+- Health endpoint mengembalikan HTTP 200 dan `data.status=healthy`; detail database tidak dipublikasikan.
 - Login mempertahankan cookie dengan `credentials: include` pada frontend.
 - GET hanya tersedia untuk role dengan `data.read`.
-- Mutasi tanpa CSRF ditolak; mutasi valid tidak melewati allowlist tabel/kolom.
+- Mutasi tanpa CSRF ditolak; mutasi generik tetap dilarang meski admin valid.
 - Response selalu JSON API, bukan HTML dari server frontend port 8080.
 - `npm run qa:crud` selesai tanpa kegagalan sebelum perubahan schema atau API
   diberikan kepada frontend.

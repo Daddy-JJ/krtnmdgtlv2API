@@ -2,8 +2,9 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { HealthCheck } from './health/health-check.ts';
 import { createHealthRouter } from './health/router.ts';
-import type { Router } from 'express';
+import type { RequestHandler, Router } from 'express';
 import { errorHandler, notFoundHandler } from './shared/http/error-handler.ts';
+import { AppError } from './shared/http/errors.ts';
 import { requestIdMiddleware } from './shared/http/request-id.ts';
 import { jsonLogger, type Logger } from './shared/logging/logger.ts';
 
@@ -35,16 +36,24 @@ export type AppDependencies = Readonly<{
   publicLandingContentRouter?: Router;
   adminLandingContentRouter?: Router;
   adminDataRouter?: Router;
+  privateSessionGuard?: RequestHandler;
+  trustProxyHops?: number;
 }>;
 
 export function createApp(dependencies: AppDependencies): Express {
   const app = express();
   const logger = dependencies.logger ?? jsonLogger;
+  // Unit fixtures can inject isolated routers without a database. All other
+  // environments fail closed if the production composition omits authority.
+  const privateSessionGuard = dependencies.privateSessionGuard ?? ((_request, _response, next) => {
+    if (dependencies.environment === 'testing') return next();
+    next(new AppError(503, 'SERVICE_UNAVAILABLE', 'Authentication is temporarily unavailable.'));
+  });
 
   app.disable('x-powered-by');
+  app.set('trust proxy', dependencies.trustProxyHops ?? 0);
   app.use(helmet());
   app.use(requestIdMiddleware);
-  app.use(express.json({ limit: '256kb', strict: true }));
   app.use((request, response, next) => {
     const origin = request.header('origin');
     if (origin && dependencies.corsAllowedOrigins?.includes(origin)) {
@@ -74,6 +83,19 @@ export function createApp(dependencies: AppDependencies): Express {
     next();
   });
 
+  app.use(express.json({ limit: '256kb', strict: true }));
+  // Run once, before routers and multipart parsers. Public auth/Starter flows
+  // and the signed payment webhook never depend on an unrelated browser cookie.
+  app.use('/api/v1', (request, response, next) => {
+    const path = request.path.toLowerCase().replace(/\/+$/, '');
+    if (path === '/payments/midtrans/webhook') return next();
+    const privatePath = /^\/(me|cards|themes|payments|subscriptions|admin|resume-service|resume-requests|feedback)(\/|$)/.test(path)
+      || path === '/auth/csrf' || path === '/auth/logout'
+      || /^\/starter\/cards\/[^/]+\/claim$/.test(path);
+    if (!privatePath) return next();
+    response.setHeader('Cache-Control', 'no-store');
+    return privateSessionGuard(request, response, next);
+  });
   app.use('/api/v1/health', createHealthRouter(dependencies.databaseHealth, dependencies.environment));
   if (dependencies.authRouter) app.use('/api/v1/auth', dependencies.authRouter);
   if (dependencies.accountRouter) app.use('/api/v1/me', dependencies.accountRouter);
@@ -98,7 +120,7 @@ export function createApp(dependencies: AppDependencies): Express {
   if(dependencies.adminResumeRouter)app.use('/api/v1/admin/resume-requests',dependencies.adminResumeRouter);
   if(dependencies.feedbackRouter)app.use('/api/v1/feedback',dependencies.feedbackRouter);
   app.use(notFoundHandler());
-  app.use(errorHandler(logger, dependencies.debug ?? false));
+  app.use(errorHandler(logger, dependencies.environment !== 'production' && (dependencies.debug ?? false)));
 
   return app;
 }

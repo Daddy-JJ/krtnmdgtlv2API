@@ -8,6 +8,10 @@ PHP/Laravel atau Endroid QR berstatus superseded; phpMyAdmin hanya alat
 administrasi database. Keputusan kanonis dicatat di
 `docs/DECISION-LOG.md`.
 
+Security hardening pra-rilis: baca [laporan dan checklist rollout](docs/SECURITY-REMEDIATION.md)
+sebelum deploy. Ada perubahan kontrak perubahan email, reset-password fragment,
+health publik, admin data read-only, dan kewajiban scanner berkas CV.
+
 ## Source of truth
 
 Folder project yang menjadi acuan tunggal saat ini adalah:
@@ -100,12 +104,12 @@ Collection tersebut menggunakan cookie authentication dan CSRF, serta dapat
 diimpor ke Postman. Hoppscotch dapat menggunakan request dan environment yang
 sama selama cookie jar/credentials diaktifkan.
 
-CRUD tabel administratif berada di `/api/v1/admin/data`. Akses baca memerlukan
-permission `data.read`; POST, PUT, dan DELETE memerlukan `data.manage` serta
-header CSRF. Tabel internal `schema_migrations` tidak diekspos dan nilai kolom
-password, token, OTP, credential, atau hash tidak dikembalikan oleh API.
-`user_feedback` sengaja read-only pada generic CRUD; triage status memakai
-endpoint Super Admin khusus dan selalu diaudit.
+Inspeksi tabel administratif berada di `/api/v1/admin/data` dan seluruhnya
+read-only dengan permission `data.read`. Generic POST/PUT/DELETE ditolak (405
+setelah otorisasi); gunakan endpoint domain untuk mutasi. Tabel internal
+`schema_migrations` tidak diekspos; credential/token/hash dan payload internal
+tidak dikembalikan, difilter atau diurutkan. Triage feedback memakai endpoint
+Super Admin khusus dan selalu diaudit.
 
 Starter signup prefill tersedia melalui read-only
 `GET /api/v1/starter/cards/:publicId/signup-context` setelah pertukaran email

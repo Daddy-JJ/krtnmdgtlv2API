@@ -36,11 +36,11 @@ test('generated collection copies cover every administrative table and enforce r
     const folder: Item | undefined = admin.item.find((entry: Item) => entry.name === resource);
     assert.ok(folder?.item, resource);
     const requests: Array<{ method: string | undefined; url: string }> = folder.item.map((entry: Item) => ({ method: entry.request?.method, url: entry.request?.url.raw ?? '' }));
-    const expectedMethods = resource === 'user_feedback' ? ['GET'] : ['GET', 'POST', 'PUT', 'DELETE'];
+    const expectedMethods = ['GET'];
     for (const method of expectedMethods) {
       assert.ok(requests.some((entry: { method: string | undefined; url: string }) => entry.method === method && entry.url.includes(`/admin/data/${resource}`)), `${method} ${resource}`);
     }
-    if (resource === 'user_feedback') {
+    {
       assert.equal(requests.some((entry: { method: string | undefined; url: string }) => ['POST', 'PUT', 'DELETE'].includes(String(entry.method))), false);
     }
   }

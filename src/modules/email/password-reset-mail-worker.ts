@@ -28,8 +28,18 @@ export class PasswordResetMailWorker {
     const issued = this.#tokens.issue();
     const now = new Date();
     try {
-      await this.#auth.transaction((transaction) => transaction.insertPasswordReset({ userId: job.userId, tokenHash: issued.hash, expiresAt: new Date(now.getTime() + 30 * 60_000), now }));
-      await this.#send(job.email,`${this.#appUrl}/reset-password/?token=${encodeURIComponent(issued.plaintext)}`,job.templateVersion);
+      const eligible = await this.#auth.transaction(async (transaction) => {
+        const user = await transaction.findUserByEmail(job.email);
+        if (!user || user.id !== job.userId || user.status !== 'active') return false;
+        await transaction.insertPasswordReset({ userId: job.userId, tokenHash: issued.hash, expiresAt: new Date(now.getTime() + 30 * 60_000), now });
+        return true;
+      });
+      // A queued message must not issue a fresh credential to a former email.
+      if (!eligible) {
+        await this.#outbox.markObsolete(job);
+        return true;
+      }
+      await this.#send(job.email,`${this.#appUrl}/reset-password/#token=${encodeURIComponent(issued.plaintext)}`,job.templateVersion);
       await this.#outbox.markSent(job);
       return true;
     } catch (error) {

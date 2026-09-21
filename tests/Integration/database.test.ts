@@ -41,10 +41,14 @@ import { MySqlFeedbackRepository } from '../../src/modules/feedback/repositories
 import { MySqlEmailTemplateRepository } from '../../src/modules/email/templates/mysql-email-template-repository.ts';
 import { defaults } from '../../src/modules/email/templates/template-content.ts';
 import { ADMIN_DATA_RESOURCES } from '../../src/modules/admin-data/resources/admin-data-resources.ts';
+import { MySqlSessionAuthority } from '../../src/shared/security/session-authority.ts';
+import { MySqlAccountRepository } from '../../src/modules/account/repositories/mysql-account-repository.ts';
 
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
 
 test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled }, async () => {
+  const testDatabase = process.env.TEST_DB_DATABASE ?? '';
+  assert.ok(/_test$/i.test(testDatabase) && testDatabase !== process.env.DB_DATABASE, 'Explicit isolated _test target required');
   const pool = createDatabasePool(parseEnvironment({
     APP_ENV: 'testing',
     DB_HOST: process.env.TEST_DB_HOST ?? '127.0.0.1',
@@ -172,9 +176,10 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.equal(await resetWorker.runOnce(), true);
     const resetUrl = new URL(delivered.resetUrl ?? '');
     assert.equal(resetUrl.pathname, '/reset-password/');
-    const resetToken = resetUrl.searchParams.get('token');
+    assert.equal(resetUrl.search, '');
+    const resetToken = new URLSearchParams(resetUrl.hash.slice(1)).get('token');
     assert.ok(resetToken);
-    await auth.resetPassword(resetToken, 'phase2b-new-password');
+    await auth.resetPassword(resetToken, 'phase2b-new-password', 'test-client');
     await assert.rejects(() => auth.refresh(resetSession.refreshToken, resetSession.csrfToken));
     await assert.rejects(() => auth.login(email, password, 'integration-client'));
     const claimSession = await auth.login(email, 'phase2b-new-password', 'integration-client');
@@ -393,24 +398,67 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.equal((await superAdmin.system()).database, 'available');
     assert.ok(Object.hasOwn(await superAdmin.security(), 'summary'));
 
+    // Verified notifications only, fake gateway, exclusively in the isolated database.
+    const partialRefund = { ...upgradeNotice, transactionStatus: 'partial_refund', eventKey: 'partial-refund', raw: { event: 'partial-refund' } };
+    assert.equal((await notifications.notification(partialRefund)).result, 'processed');
+    assert.equal((await payments.get(claimSession.user.publicId, upgrade.publicId)).status, 'paid');
+    assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'pro');
+    const refund = { ...upgradeNotice, transactionStatus: 'refund', eventKey: 'full-refund', raw: { event: 'full-refund' } };
+    assert.equal((await notifications.notification(refund)).result, 'processed');
+    assert.equal((await payments.get(claimSession.user.publicId, upgrade.publicId)).status, 'refunded');
+    assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'basic');
+    const [downgraded] = await pool.execute<Array<RowDataPacket & { plan_code: string; eligible: number }>>(`SELECT c.plan_code,EXISTS(SELECT 1 FROM plan_theme_access a JOIN plans p ON p.id=a.plan_id WHERE p.code=c.plan_code AND a.theme_id=c.theme_id) eligible FROM cards c JOIN users u ON u.id=c.user_id WHERE u.public_id=? AND c.deleted_at IS NULL`, [claimSession.user.publicId]);
+    assert.equal(downgraded[0]?.plan_code, 'basic'); assert.equal(Number(downgraded[0]?.eligible), 1);
+    assert.equal((await notifications.notification(refund)).result, 'duplicate');
+    assert.equal((await notifications.notification({ ...upgradeNotice, eventKey: 'late-settlement', raw: { event: 'late-settlement' } })).result, 'ignored');
+    assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'basic');
+
+    const beforeRenewal = (await payments.currentSubscription(claimSession.user.publicId))!;
+    const authority = (await paymentRepository.findCheckoutAuthority(claimSession.user.publicId, 'basic'))!;
+    const renewal = await paymentRepository.insertPending({ publicId: randomUUID(), merchantOrderId: 'integration-renewal', authority, now: new Date() });
+    const renewalNotice = { ...settlement, orderId: renewal.merchantOrderId, grossAmount: renewal.amount.toFixed(2), eventKey: 'renewal-paid', raw: { event: 'renewal-paid' } };
+    await notifications.notification(renewalNotice);
+    assert.ok((await payments.currentSubscription(claimSession.user.publicId))!.endsAt > beforeRenewal.endsAt);
+    await notifications.notification({ ...renewalNotice, transactionStatus: 'refund', eventKey: 'renewal-refund', raw: { event: 'renewal-refund' } });
+    assert.equal((await payments.currentSubscription(claimSession.user.publicId))!.endsAt.getTime(), beforeRenewal.endsAt.getTime());
+
+    // Historical rows without payment-period attribution require manual review,
+    // and may not retain an active entitlement after a verified full refund.
+    await pool.execute('UPDATE subscription_periods SET source_payment_id=NULL WHERE source_payment_id=(SELECT id FROM payments WHERE public_id=?)', [checkout.publicId]);
+    await notifications.notification({ ...settlement, transactionStatus: 'refund', eventKey: 'legacy-refund', raw: { event: 'legacy-refund' } });
+    assert.equal((await payments.get(claimSession.user.publicId, checkout.publicId)).status, 'refund_pending_review');
+    assert.equal(await payments.currentSubscription(claimSession.user.publicId), null);
+    const [refundedCard] = await pool.execute<Array<RowDataPacket & { plan_code: string }>>('SELECT c.plan_code FROM cards c JOIN users u ON u.id=c.user_id WHERE u.public_id=? AND c.deleted_at IS NULL', [claimSession.user.publicId]);
+    assert.equal(refundedCard[0]?.plan_code, 'starter');
+
+    const sessionClaims = new Rs256AccessTokenService({ privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(), issuer: 'kartunamadigital.id', audience: 'kartunamadigital-web', ttlSeconds: 900 }).verify(claimSession.accessToken)!;
+    const sessionAuthority = new MySqlSessionAuthority(pool);
+    assert.equal(await sessionAuthority.isActive(claimSession.user.publicId, sessionClaims.sid), true);
+    assert.equal(await sessionAuthority.isActive(paidUser.public_id, sessionClaims.sid), false);
+    await pool.execute("UPDATE users SET status='suspended' WHERE public_id=?", [claimSession.user.publicId]);
+    assert.equal(await sessionAuthority.isActive(claimSession.user.publicId, sessionClaims.sid), false);
+    await pool.execute("UPDATE users SET status='active' WHERE public_id=?", [claimSession.user.publicId]);
+    const accounts = new MySqlAccountRepository(pool);
+    const currentHash = (await accounts.findPasswordHash(claimSession.user.publicId))!;
+    assert.equal(await accounts.updateEmail(claimSession.user.publicId, 'race@example.test', 'stale-hash', new Date()), null);
+    await accounts.updateEmail(claimSession.user.publicId, 'new-owner@example.test', currentHash, new Date());
+    assert.equal(await sessionAuthority.isActive(claimSession.user.publicId, sessionClaims.sid), false);
+    assert.equal((await accounts.findByPublicId(claimSession.user.publicId))?.emailVerifiedAt, null);
+
     const adminData = new MySqlAdminDataRepository(pool);
     const adminDataCatalog = await adminData.catalog();
     assert.equal(adminDataCatalog.length, ADMIN_DATA_RESOURCES.length);
     assert.deepEqual(adminDataCatalog.find((entry) => entry.resource === 'resume_retention_notices')?.primaryKey, ['request_id', 'threshold_days']);
-    const adminDataMarker = `integration-${claimSession.user.publicId}`;
-    const createdAdminData = await adminData.create('auth_rate_limits', {
-      bucket_hash: createHash('sha256').update(adminDataMarker).digest('hex'),
-      action: adminDataMarker,
-      hits: 1,
-      window_started_at: '2026-09-01 00:00:00',
-      expires_at: '2026-09-01 01:00:00',
-    }, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker });
-    assert.equal(Object.hasOwn(createdAdminData, 'bucket_hash'), false);
-    const adminDataIdentifier = String(createdAdminData.id);
-    assert.equal(Number((await adminData.update('auth_rate_limits', adminDataIdentifier, { hits: 2 }, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker })).hits), 2);
-    assert.equal((await adminData.list('auth_rate_limits', { page: 1, limit: 10, order: 'desc', filters: { action: adminDataMarker } })).pagination.total, 1);
-    await adminData.delete('auth_rate_limits', adminDataIdentifier, { actorPublicId: claimSession.user.publicId, requestId: adminDataMarker });
-    await assert.rejects(() => adminData.get('auth_rate_limits', adminDataIdentifier));
+    assert.ok(adminDataCatalog.every(resource => resource.columns.every(column => !column.insertable && !column.updatable)));
+    const audit = { actorPublicId: claimSession.user.publicId, requestId: 'integration-readonly' };
+    await assert.rejects(() => adminData.create('users', { password_hash: 'bypass' }, audit), { code: 'RESOURCE_READ_ONLY' });
+    await assert.rejects(() => adminData.update('auth_rate_limits', '1', { hits: 0 }, audit), { code: 'RESOURCE_READ_ONLY' });
+    await assert.rejects(() => adminData.delete('activity_logs', '1', audit), { code: 'RESOURCE_READ_ONLY' });
+    const visibleUsers = await adminData.list('users', { page: 1, limit: 10, order: 'desc', filters: {} });
+    assert.ok(visibleUsers.items.length > 0);
+    assert.ok(visibleUsers.items.every(row => !Object.hasOwn(row, 'password_hash')));
+    await assert.rejects(() => adminData.list('users', { page: 1, limit: 10, order: 'desc', filters: { password_hash: 'guess' } }), { code: 'VALIDATION_ERROR' });
+    await assert.rejects(() => adminData.list('users', { page: 1, limit: 10, order: 'desc', filters: {}, sort: 'password_hash' }), { code: 'VALIDATION_ERROR' });
 
     assert.deepEqual(await dummySeeds.run(), ['902-all-tables-dummy.sql']);
     assert.deepEqual(await dummySeeds.run(), ['902-all-tables-dummy.sql']);

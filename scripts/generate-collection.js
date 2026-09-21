@@ -152,7 +152,7 @@ for (const resource of ADMIN_DATA_RESOURCES) {
 const collection = {
   info: {
     name: 'KartuNamaDigital REST API - Local',
-    description: 'Node.js + Express REST API collection. Administrative table CRUD requires a super-admin session, data.read/data.manage permissions, and CSRF for mutations.',
+    description: 'Node.js + Express REST API collection. Generic administrative tables are read-only with data.read. Use purpose-specific endpoints for mutations. Private endpoints require an active, non-revoked database session.',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
   },
   variable: [
@@ -221,7 +221,7 @@ const collection = {
     },
     {
       name: 'Administrative Data CRUD',
-      description: 'Run Admin Login and Issue CSRF Token first. Composite primary keys use ~ between key components. user_feedback is intentionally read-only here; use Super Admin Operations to update workflow status.',
+      description: 'Read-only catalog for all tables (folder name retained for import compatibility). Run Admin Login first. Composite primary keys use ~. Generic POST/PUT/DELETE return 405 after authorization; use purpose-specific Super Admin Operations.',
       item: [request('Resource Catalog', 'GET', '/admin/data'), ...resourceItems],
     },
   ],

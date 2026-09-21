@@ -48,6 +48,14 @@ export class MySqlMailOutboxRepository {
     }catch(error){await connection.rollback();throw error;}finally{connection.release();}
   }
 
+  async markObsolete(job: PasswordResetJob, now = new Date()): Promise<void> {
+    // Terminal, but not a successful SMTP delivery; never fabricate an ACCEPTED log.
+    await this.#pool.execute(`UPDATE mail_outbox SET status='failed',attempts=max_attempts,
+      failed_at=?,locked_at=NULL,last_error_code='RECIPIENT_CHANGED',
+      last_error_message='Reset request is no longer eligible.',updated_at=?
+      WHERE id=? AND status='processing'`, [now, now, job.id]);
+  }
+
   async markSent(job: PasswordResetJob, now = new Date()): Promise<void> {
     const connection = await this.#pool.getConnection();
     try {

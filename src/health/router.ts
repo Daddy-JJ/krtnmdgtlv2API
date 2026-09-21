@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import type { HealthCheck } from './health-check.ts';
 
-export function createHealthRouter(database: HealthCheck, environment: string): Router {
+export function createHealthRouter(database: HealthCheck, _environment: string): Router {
   const router = Router();
 
   router.get('/', async (_request, response, next) => {
+    response.setHeader('Cache-Control', 'no-store');
     try {
       const result = await database.check();
 
@@ -13,7 +14,7 @@ export function createHealthRouter(database: HealthCheck, environment: string): 
           success: false,
           message: 'Service is unavailable.',
           code: 'SERVICE_UNAVAILABLE',
-          data: { status: 'unhealthy', database: 'unavailable' },
+          data: { status: 'unhealthy' },
         });
         return;
       }
@@ -23,9 +24,6 @@ export function createHealthRouter(database: HealthCheck, environment: string): 
         message: 'Healthy',
         data: {
           status: 'healthy',
-          environment,
-          database: 'available',
-          databaseLatencyMs: result.latencyMs,
         },
       });
     } catch (error) {

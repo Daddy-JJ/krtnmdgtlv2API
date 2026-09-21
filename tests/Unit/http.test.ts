@@ -48,7 +48,8 @@ test('health endpoint preserves the Phase 1 success contract and security header
   assert.equal(response.headers.get('x-request-id'), 'request-12345678');
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(body.success, true);
-  assert.equal((body.data as Record<string, unknown>).database, 'available');
+  assert.deepEqual(body.data, { status: 'healthy' });
+  assert.equal(response.headers.get('cache-control'), 'no-store');
 });
 
 test('health endpoint reports database failure without leaking an exception', async () => {
@@ -57,7 +58,7 @@ test('health endpoint reports database failure without leaking an exception', as
 
   assert.equal(response.status, 503);
   assert.equal(body.code, 'SERVICE_UNAVAILABLE');
-  assert.deepEqual(body.data, { status: 'unhealthy', database: 'unavailable' });
+  assert.deepEqual(body.data, { status: 'unhealthy' });
 });
 
 test('unknown API route returns the common JSON 404 shape', async () => {

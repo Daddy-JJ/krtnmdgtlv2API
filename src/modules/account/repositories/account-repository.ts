@@ -12,5 +12,6 @@ export type AccountProfile = Readonly<{
 
 export interface AccountRepository {
   findByPublicId(publicId: string): Promise<AccountProfile | null>;
-  updateEmail(publicId: string, email: string, now: Date): Promise<AccountProfile | 'email_taken' | null>;
+  findPasswordHash(publicId: string): Promise<string | null>;
+  updateEmail(publicId: string, email: string, expectedPasswordHash: string, now: Date): Promise<AccountProfile | 'email_taken' | null>;
 }

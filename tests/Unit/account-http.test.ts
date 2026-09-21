@@ -8,6 +8,7 @@ import type { AccountService } from '../../src/modules/account/services/account-
 import { AppError } from '../../src/shared/http/errors.ts';
 import type { Logger } from '../../src/shared/logging/logger.ts';
 import type { AuthenticatedActorService } from '../../src/shared/security/authenticated-actor.ts';
+import type { RbacService } from '../../src/shared/security/rbac-service.ts';
 
 const logger: Logger = { info: () => undefined, error: () => undefined };
 const user = { publicId: 'user-public-id', email: 'user@example.com', role: 'user' as const, status: 'active', emailVerified: true };
@@ -32,7 +33,7 @@ async function call(method: string, body?: unknown, headers: Record<string, stri
     databaseHealth: { check: async () => ({ healthy: true, latencyMs: 0 }) },
     environment: 'testing',
     logger,
-    accountRouter: createAccountRouter(new AccountController(service, actors)),
+    accountRouter: createAccountRouter(new AccountController(service, actors, { assertRecentSession: async () => undefined } as unknown as RbacService)),
   });
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
@@ -58,7 +59,7 @@ test('PUT /me requires session-bound CSRF and returns updated email as unverifie
   const rejected = await call('PUT', { email: 'new@example.com' });
   assert.equal(rejected.status, 403);
 
-  const accepted = await call('PUT', { email: 'new@example.com' }, { 'x-csrf-token': 'valid-csrf' });
+  const accepted = await call('PUT', { email: 'new@example.com', currentPassword: 'test-current-password' }, { 'x-csrf-token': 'valid-csrf' });
   const body = await accepted.json() as { data: { user: typeof user } };
   assert.equal(accepted.status, 200);
   assert.equal(body.data.user.email, 'new@example.com');

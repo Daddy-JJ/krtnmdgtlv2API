@@ -1,6 +1,6 @@
 # Backend Architecture
 
-Updated: 2026-09-19
+Updated: 2026-09-21
 
 ## Runtime
 
@@ -35,13 +35,25 @@ non-enumerating card-not-found contract. Renderer failures return a safe 503.
 
 Workspace Super Admin memakai endpoint domain untuk feedback, card recovery,
 reports, system, security, mail, template, landing page, dan Resume Service.
-Generic `/admin/data` bukan business workflow. `user_feedback` read-only pada
+Generic `/admin/data` bukan business workflow. Seluruh tabel read-only pada
 generic data API; status feedback hanya dapat berubah melalui endpoint khusus
 yang memerlukan CSRF, recent authentication, alasan, dan immutable audit.
 
 Semua read model operasional disanitasi. Secret, credential, token/hash,
 internal storage path, isi file Resume Service, dan stack trace tidak menjadi
 bagian kontrak dashboard.
+
+## Security boundary
+
+`src/app.ts` applies a database-backed active-session guard before private routers
+and multipart parsers. JWT signature/expiry checks are necessary but insufficient:
+revoked/expired refresh families and suspended users fail closed. Public Starter
+management and payment webhooks retain their own token/signature authorities.
+Authentication has independent IP/identity limits; private mutations and uploads
+have IP/user limits. Proxy trust is explicit, default zero.
+
+See [Security remediation](SECURITY-REMEDIATION.md) for changed contracts, refund
+reconciliation, bounded password work and antivirus requirements.
 
 ## Slug ownership
 

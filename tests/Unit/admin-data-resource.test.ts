@@ -16,7 +16,7 @@ test('admin data allowlist contains every non-internal database table exactly on
   assert.equal(isAdminDataResource('schema_migrations'), false);
   assert.equal(isAdminDataResource('users; DROP TABLE users'), false);
   assert.equal(isReadOnlyAdminDataResource('user_feedback'), true);
-  assert.equal(isReadOnlyAdminDataResource('users'), false);
+  for (const resource of ADMIN_DATA_RESOURCES) assert.equal(isReadOnlyAdminDataResource(resource), true);
 });
 
 test('credential and token material is classified as sensitive', () => {

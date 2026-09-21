@@ -152,9 +152,29 @@ Frontend pengguna harus memakai endpoint domain seperti `/auth`, `/me`,
 `/cards`, `/plans`, `/themes`, `/payments`, `/subscriptions`, `/feedback`, dan
 `/public/cards`.
 
-`/admin/data` adalah alat super-admin untuk operasi database terkendali. Jangan
+`/admin/data` adalah alat super-admin read-only untuk inspeksi tabel. Jangan
 memakai generic CRUD sebagai shortcut untuk fitur end-user karena endpoint
 domain menerapkan ownership dan aturan bisnis yang lebih kuat.
+
+### Security contract update — 2026-09-21
+
+- `PUT /me`: kirim `{ email, currentPassword }`, CSRF, dan cookie sesi yang baru
+  diautentikasi (maksimal 15 menit). Setelah email benar-benar berubah, seluruh
+  sesi dicabut dan email menjadi unverified. Lanjutkan OTP lalu login ulang;
+  jangan melakukan retry otomatis terhadap mutasi ini.
+- Email reset memakai `/reset-password/#token=...`. Baca fragment ke memori,
+  segera hapus fragment memakai `history.replaceState`, lalu kirim token hanya
+  dalam JSON body POST reset. Jangan simpan token/password di Web Storage.
+  Deploy dukungan fragment frontend sebelum backend/mail worker ini dirilis.
+- Health hanya `data: { status: 'healthy' }`; jangan mensyaratkan `database`
+  atau `environment` pada response publik.
+- Sesi dicabut/suspended menghasilkan 401 `AUTH_REQUIRED`; lakukan refresh-once
+  sesuai kontrak existing, lalu login bila refresh gagal. CSRF invalid tetap 403.
+- 429 berarti pembatasan request; 503 `AUTH_BUSY`/`RESUME_SCANNER_BUSY` perlu
+  pesan coba lagi, bukan loop retry otomatis.
+- Generic admin POST/PUT/DELETE tidak didukung lagi. Gunakan endpoint domain.
+
+Detail rollout dan sisa validasi hosting: [Security remediation](SECURITY-REMEDIATION.md).
 
 Untuk workspace Super Admin gunakan endpoint domain operasional:
 

@@ -30,6 +30,7 @@ const actors = {
   },
 } as unknown as AuthenticatedActorService;
 const rbac = {
+  assertRecentSession: async () => undefined,
   assert: async () => {
     if (!allowed) throw new AppError(403, 'PERMISSION_REQUIRED', 'Required permission is missing.');
   },
@@ -70,14 +71,14 @@ test('admin data reads require data.read and reject resources outside the allowl
   assert.equal((await call('GET', '/api/v1/admin/data/schema_migrations')).status, 404);
 });
 
-test('admin data mutations require CSRF and support create, update, and delete', async () => {
+test('generic admin mutations require CSRF but cannot bypass domain workflows', async () => {
   allowed = true;
   mutations.length = 0;
   assert.equal((await call('POST', '/api/v1/admin/data/users', { email: 'test@example.com' })).status, 403);
-  assert.equal((await call('POST', '/api/v1/admin/data/users', { email: 'test@example.com' }, 'valid')).status, 201);
-  assert.equal((await call('PUT', '/api/v1/admin/data/users/2', { status: 'active' }, 'valid')).status, 200);
-  assert.equal((await call('DELETE', '/api/v1/admin/data/users/2', undefined, 'valid')).status, 200);
-  assert.deepEqual(mutations, ['create:users', 'update:users:2', 'delete:users:2']);
+  assert.equal((await call('POST', '/api/v1/admin/data/users', { email: 'test@example.com' }, 'valid')).status, 405);
+  assert.equal((await call('PUT', '/api/v1/admin/data/users/2', { status: 'active' }, 'valid')).status, 405);
+  assert.equal((await call('DELETE', '/api/v1/admin/data/users/2', undefined, 'valid')).status, 405);
+  assert.deepEqual(mutations, []);
 });
 
 test('user feedback remains readable through generic admin data but rejects generic mutations', async () => {

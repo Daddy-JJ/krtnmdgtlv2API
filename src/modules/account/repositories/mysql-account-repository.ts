@@ -2,7 +2,7 @@ import type { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { AccountProfile, AccountRepository } from './account-repository.ts';
 import { normalizeRoles, primaryRole } from '../../../shared/security/roles.ts';
 
-type AccountRow = RowDataPacket & { id: number; public_id: string; email: string; active_roles: string | null; permissions: string | null; status: string; email_verified_at: Date | null };
+type AccountRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string; active_roles: string | null; permissions: string | null; status: string; email_verified_at: Date | null };
 
 const authorityColumns = `
   (SELECT GROUP_CONCAT(DISTINCT r.code ORDER BY FIELD(r.code,'super_admin','resume_service_admin','cv_specialist','member'))
@@ -31,13 +31,18 @@ export class MySqlAccountRepository implements AccountRepository {
     return rows[0] ? profile(rows[0]) : null;
   }
 
-  async updateEmail(publicId: string, email: string, now: Date): Promise<AccountProfile | 'email_taken' | null> {
+  async findPasswordHash(publicId: string): Promise<string | null> {
+    const [rows] = await this.#pool.execute<Array<RowDataPacket & { password_hash: string }>>(`SELECT password_hash FROM users WHERE public_id=? AND status='active' LIMIT 1`, [publicId]);
+    return rows[0]?.password_hash ?? null;
+  }
+
+  async updateEmail(publicId: string, email: string, expectedPasswordHash: string, now: Date): Promise<AccountProfile | 'email_taken' | null> {
     const connection = await this.#pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [currentRows] = await connection.execute<AccountRow[]>(`SELECT u.id,u.public_id,u.email,${authorityColumns},u.status,u.email_verified_at FROM users u WHERE u.public_id=? FOR UPDATE`, [publicId]);
+      const [currentRows] = await connection.execute<AccountRow[]>(`SELECT u.id,u.public_id,u.email,u.password_hash,${authorityColumns},u.status,u.email_verified_at FROM users u WHERE u.public_id=? FOR UPDATE`, [publicId]);
       const current = currentRows[0];
-      if (!current || current.status !== 'active') {
+      if (!current || current.status !== 'active' || current.password_hash !== expectedPasswordHash) {
         await connection.rollback();
         return null;
       }
@@ -51,11 +56,18 @@ export class MySqlAccountRepository implements AccountRepository {
       const emailVerifiedAt = current.email === email ? current.email_verified_at : null;
       const [result] = await connection.execute<ResultSetHeader>('UPDATE users SET email = ?, email_verified_at = ?, updated_at = ? WHERE id = ?', [email, emailVerifiedAt, now, current.id]);
       if (result.affectedRows !== 1) throw new Error('Failed to update current user email.');
+      if (current.email !== email) {
+        await connection.execute('UPDATE refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL', [now, current.id]);
+        await connection.execute('UPDATE password_reset_tokens SET used_at=? WHERE user_id=? AND used_at IS NULL', [now, current.id]);
+        await connection.execute('UPDATE email_otps SET consumed_at=? WHERE user_id=? AND consumed_at IS NULL', [now, current.id]);
+        await connection.execute(`INSERT INTO activity_logs(user_id,event,created_at) VALUES(?,'account.email-changed',?)`, [current.id, now]);
+      }
       const [rows] = await connection.execute<AccountRow[]>(`SELECT u.id,u.public_id,u.email,${authorityColumns},u.status,u.email_verified_at FROM users u WHERE u.public_id=? LIMIT 1`, [publicId]);
       await connection.commit();
       return rows[0] ? profile(rows[0]) : null;
     } catch (error) {
       await connection.rollback();
+      if ((error as { code?: string })?.code === 'ER_DUP_ENTRY') return 'email_taken';
       throw error;
     } finally {
       connection.release();

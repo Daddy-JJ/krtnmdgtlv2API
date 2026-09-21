@@ -5,6 +5,7 @@ import { readCookie } from '../../../shared/http/cookie-reader.ts';
 import type { AuthenticatedActorService } from '../../../shared/security/authenticated-actor.ts';
 import { updateCurrentUserInputSchema } from '../dto/account-input.ts';
 import type { AccountService } from '../services/account-service.ts';
+import type { RbacService } from '../../../shared/security/rbac-service.ts';
 
 function parse<T>(schema: ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
@@ -17,7 +18,8 @@ function parse<T>(schema: ZodType<T>, input: unknown): T {
 export class AccountController {
   readonly #service: AccountService;
   readonly #actors: AuthenticatedActorService;
-  constructor(service: AccountService, actors: AuthenticatedActorService) { this.#service = service; this.#actors = actors; }
+  readonly #rbac: RbacService;
+  constructor(service: AccountService, actors: AuthenticatedActorService, rbac: RbacService) { this.#service = service; this.#actors = actors; this.#rbac = rbac; }
 
   getCurrentUser = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#actors.authenticate(readCookie(request, 'access_token') ?? undefined);
@@ -27,6 +29,7 @@ export class AccountController {
   updateCurrentUser = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#actors.authorizeUnsafe(readCookie(request, 'access_token') ?? undefined, request.header('x-csrf-token'));
     const input = parse(updateCurrentUserInputSchema, request.body);
-    response.json({ success: true, message: 'Current user updated.', data: { user: await this.#service.updateCurrentUser(actor.userPublicId, input.email) } });
+    await this.#rbac.assertRecentSession(actor.userPublicId, actor.sessionId);
+    response.json({ success: true, message: 'Current user updated. Sign in again if the email changed.', data: { user: await this.#service.updateCurrentUser(actor.userPublicId, input.email, input.currentPassword) } });
   };
 }

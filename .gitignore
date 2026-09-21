@@ -6,3 +6,7 @@ storage/.DS_Store
 storage/private/*.pem
 storage/cache/
 storage/backups/
+
+# Local and hosting database exports may contain PII, password hashes, and tokens.
+/database/hosting_krtnmdgtlv2.sql
+/database/local-krtnmdgtlv2.sql

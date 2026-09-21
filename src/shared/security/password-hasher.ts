@@ -1,4 +1,5 @@
 import { randomBytes, scrypt as deriveScrypt, timingSafeEqual } from 'node:crypto';
+import { AppError } from '../http/errors.ts';
 
 const version = 1;
 const logN = 16;
@@ -10,13 +11,20 @@ const keyLength = 32;
 const maxmem = 128 * 1024 * 1024;
 const encodedPattern = /^\$scrypt\$v=1\$ln=16,r=8,p=1\$([A-Za-z0-9_-]{22})\$([A-Za-z0-9_-]{43})$/;
 
-function derive(password: string, salt: Buffer): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
+let activeDerivations = 0;
+const maximumDerivations = 2;
+
+async function derive(password: string, salt: Buffer): Promise<Buffer> {
+  // Process-wide, including simultaneous hashing and verification. Never build
+  // an unbounded in-memory queue of passwords or scrypt allocations.
+  if (activeDerivations >= maximumDerivations) throw new AppError(503, 'AUTH_BUSY', 'Authentication is temporarily busy. Please try again.');
+  activeDerivations++;
+  try { return await new Promise<Buffer>((resolve, reject) => {
     deriveScrypt(password, salt, keyLength, { N: cost, r: blockSize, p: parallelization, maxmem }, (error, result) => {
       if (error) reject(error);
       else resolve(result);
     });
-  });
+  }); } finally { activeDerivations--; }
 }
 
 export interface PasswordHasher {
@@ -41,7 +49,8 @@ export class ScryptPasswordHasher implements PasswordHasher {
       if (salt.length !== saltLength || expected.length !== keyLength) return false;
       const actual = await derive(password, salt);
       return timingSafeEqual(actual, expected);
-    } catch {
+    } catch (error) {
+      if (error instanceof AppError) throw error;
       return false;
     }
   }

@@ -59,6 +59,7 @@ export class AdminDataController {
   create = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#authenticate(request, true);
     await this.#rbac.assert(actor.userPublicId, 'data.manage');
+    await this.#rbac.assertRecentSession(actor.userPublicId, actor.sessionId);
     const resource = this.#mutableResource(request);
     const data = await this.#repository.create(resource, objectBody(request.body), {
       actorPublicId: actor.userPublicId,
@@ -70,6 +71,7 @@ export class AdminDataController {
   update = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#authenticate(request, true);
     await this.#rbac.assert(actor.userPublicId, 'data.manage');
+    await this.#rbac.assertRecentSession(actor.userPublicId, actor.sessionId);
     const resource = this.#mutableResource(request);
     const data = await this.#repository.update(resource, this.#identifier(request), objectBody(request.body), {
       actorPublicId: actor.userPublicId,
@@ -81,6 +83,7 @@ export class AdminDataController {
   delete = async (request: Request, response: Response): Promise<void> => {
     const actor = this.#authenticate(request, true);
     await this.#rbac.assert(actor.userPublicId, 'data.manage');
+    await this.#rbac.assertRecentSession(actor.userPublicId, actor.sessionId);
     const resource = this.#mutableResource(request);
     const data = await this.#repository.delete(resource, this.#identifier(request), {
       actorPublicId: actor.userPublicId,

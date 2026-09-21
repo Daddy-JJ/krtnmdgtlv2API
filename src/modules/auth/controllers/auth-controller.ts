@@ -82,7 +82,7 @@ export class AuthController {
 
   resetPassword = async (request: Request, response: Response): Promise<void> => {
     const input = parse(resetPasswordInputSchema, request.body);
-    await this.#service.resetPassword(input.token, input.password);
+    await this.#service.resetPassword(input.token, input.password, request.ip ?? 'unknown');
     response.json({ success: true, message: 'Password reset.', data: null });
   };
 

@@ -51,17 +51,20 @@ export const ADMIN_DATA_RESOURCES = Object.freeze([
 export type AdminDataResource = (typeof ADMIN_DATA_RESOURCES)[number];
 
 const resourceSet = new Set<string>(ADMIN_DATA_RESOURCES);
-const readOnlyResourceSet = new Set<AdminDataResource>(['user_feedback']);
+// The generic administrative data API is intentionally read-only.  Mutations
+// must use a domain-specific endpoint with explicit validation, audit context,
+// confirmation, and (where appropriate) recent authentication.
+const genericMutableResourceSet = new Set<AdminDataResource>();
 
 export function isAdminDataResource(value: string): value is AdminDataResource {
   return resourceSet.has(value);
 }
 
 export function isReadOnlyAdminDataResource(value: AdminDataResource): boolean {
-  return readOnlyResourceSet.has(value);
+  return !genericMutableResourceSet.has(value);
 }
 
-const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$)/i;
+const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$|^storage_path$|^snap_redirect_url$|^payload_text$|^response_message$|^metadata_text$)/i;
 
 export function isSensitiveAdminDataColumn(column: string): boolean {
   return sensitiveColumnPattern.test(column);

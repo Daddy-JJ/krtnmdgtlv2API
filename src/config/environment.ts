@@ -27,6 +27,8 @@ const environmentSchema = z.object({
   DB_PASSWORD: z.string().default(''),
   DB_CONNECTION_LIMIT: z.coerce.number().int().min(1).max(100).default(10),
   CORS_ALLOWED_ORIGINS: z.string().default(''),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+  RESUME_CLAMSCAN_PATH: optionalString,
   JWT_PRIVATE_KEY_PATH: z.string().min(1).default('storage/private/jwt-private.pem'),
   JWT_PUBLIC_KEY_PATH: z.string().min(1).default('storage/private/jwt-public.pem'),
   JWT_ISSUER: z.string().min(1).default('kartunamadigital.id'),
@@ -64,6 +66,15 @@ const environmentSchema = z.object({
   MAIL_VERIFY_PEER: booleanValue.default(true),
   EMAIL_TEMPLATES_ENABLED: booleanValue.default(false),
 }).superRefine((value, context) => {
+  for (const origin of value.CORS_ALLOWED_ORIGINS.split(',').map(item => item.trim()).filter(Boolean)) {
+    let valid = false;
+    try {
+      const url = new URL(origin);
+      valid = url.origin === origin && ['http:', 'https:'].includes(url.protocol)
+        && (value.APP_ENV !== 'production' || url.protocol === 'https:');
+    } catch { /* Rejected below without echoing configuration values. */ }
+    if (!valid) context.addIssue({ code: 'custom', path: ['CORS_ALLOWED_ORIGINS'], message: 'CORS entries must be exact HTTP(S) origins; production requires HTTPS.' });
+  }
   if (value.MIDTRANS_ENABLED) {
     for (const field of ['MIDTRANS_SERVER_KEY', 'MIDTRANS_CLIENT_KEY', 'MIDTRANS_MERCHANT_ID'] as const) {
       if (value[field].trim() === '') context.addIssue({ code: 'custom', path: [field], message: `${field} is required when Midtrans is enabled.` });

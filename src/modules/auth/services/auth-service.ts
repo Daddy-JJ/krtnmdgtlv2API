@@ -47,7 +47,7 @@ export class AuthService {
   }
 
   async register(email: string, password: string, clientKey: string): Promise<void> {
-    await this.#limit('register', `${clientKey}:${email}`, 5, 3600);
+    await this.#limitClientAndIdentity('register', clientKey, email, 20, 5, 3600);
     const passwordHash = await this.#passwords.hash(password);
     let issued: string | null;
     try {
@@ -60,7 +60,7 @@ export class AuthService {
   }
 
   async resendOtp(email: string, clientKey: string): Promise<void> {
-    await this.#limit('otp-resend', `${clientKey}:${email}`, 5, 3600);
+    await this.#limitClientAndIdentity('otp-resend', clientKey, email, 20, 5, 3600);
     const issued = await this.#issueRegistrationOtp(email, null, false);
     if (issued) await this.#deliverOtp(email, issued);
   }
@@ -86,7 +86,7 @@ export class AuthService {
   }
 
   async login(email: string, password: string, clientKey: string): Promise<SessionResult> {
-    await this.#limit('login', `${clientKey}:${email}`, 10, 900);
+    await this.#limitClientAndIdentity('login', clientKey, email, 30, 10, 900);
     const user = await this.#repository.transaction((transaction) => transaction.findUserByEmail(email));
     const storedHash = typeof user?.passwordHash === 'string' && user.passwordHash.trim().length > 0 ? user.passwordHash : null;
     const valid = await this.#passwords.verify(password, storedHash ?? this.#dummyPasswordHash);
@@ -132,17 +132,25 @@ export class AuthService {
   }
 
   async forgotPassword(email: string, clientKey: string): Promise<void> {
-    await this.#limit('forgot-password', `${clientKey}:${email}`, 5, 3600);
+    await this.#limitClientAndIdentity('forgot-password', clientKey, email, 20, 5, 3600);
     await this.#repository.transaction(async (transaction) => {
       const found = await transaction.findUserByEmail(email);
       if (found) await transaction.enqueuePasswordResetMail({ publicId: randomUUID(), userId: found.id, email, now: new Date() });
     });
   }
 
-  async resetPassword(token: string, password: string): Promise<void> {
+  async resetPassword(token: string, password: string, clientKey: string): Promise<void> {
+    await this.#limit('reset-password-ip', clientKey, 10, 900);
+    const tokenHash = this.#opaqueTokens.hash(token);
+    const usable = await this.#repository.transaction(async (transaction) => {
+      const reset = await transaction.findPasswordReset(tokenHash);
+      const now = new Date();
+      return !!reset && !reset.usedAt && reset.expiresAt > now;
+    });
+    if (!usable) throw new AppError(422, 'VALIDATION_ERROR', 'The reset token is invalid or expired.');
     const passwordHash = await this.#passwords.hash(password);
     const ok = await this.#repository.transaction(async (transaction) => {
-      const reset = await transaction.findPasswordReset(this.#opaqueTokens.hash(token));
+      const reset = await transaction.findPasswordReset(tokenHash);
       const now = new Date();
       if (!reset || reset.usedAt || reset.expiresAt <= now) return false;
       await transaction.updatePassword(reset.userId, passwordHash, now);
@@ -157,7 +165,14 @@ export class AuthService {
     const refresh = this.#opaqueTokens.issue();
     const familyId = randomUUID();
     const now = new Date();
-    await this.#repository.transaction((transaction) => transaction.insertRefresh({ userId: user.id, tokenHash: refresh.hash, familyId, expiresAt: new Date(now.getTime() + this.#config.refreshTtlDays * 86_400_000), now }));
+    await this.#repository.transaction(async (transaction) => {
+      // Recheck after expensive verification: a reset or suspension may have won.
+      const current = await transaction.findUserByEmail(user.email);
+      if (!current || current.id !== user.id || current.passwordHash !== user.passwordHash || current.status !== 'active' || !current.emailVerifiedAt) {
+        throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
+      }
+      await transaction.insertRefresh({ userId: user.id, tokenHash: refresh.hash, familyId, expiresAt: new Date(now.getTime() + this.#config.refreshTtlDays * 86_400_000), now });
+    });
     return { accessToken: this.#accessTokens.issue({ userPublicId: user.publicId, sessionId: familyId, role: user.role }, now), refreshToken: refresh.plaintext, csrfToken: this.#csrf.issue(familyId), user: { publicId: user.publicId, email: user.email, role: user.role, roles: user.roles } };
   }
 
@@ -185,6 +200,11 @@ export class AuthService {
 
   async #limit(action: string, identifier: string, limit: number, seconds: number): Promise<void> {
     if (!await this.#rateLimiter.consume(action, identifier, limit, seconds)) throw new AppError(429, 'RATE_LIMITED', 'Too many requests.');
+  }
+
+  async #limitClientAndIdentity(action: string, clientKey: string, identity: string, clientLimit: number, identityLimit: number, seconds: number): Promise<void> {
+    await this.#limit(`${action}:ip`, clientKey, clientLimit, seconds);
+    await this.#limit(`${action}:identity`, identity, identityLimit, seconds);
   }
 
   #duplicate(error: unknown): boolean {

@@ -87,6 +87,11 @@ Run `npm run mail:work` to process password-reset, Resume, and template-test job
 Starter and OTP remain synchronous. Test jobs can remain queued until the worker
 runs. SMTP configuration stays in `.env` and is never returned by the API.
 
+Password-reset delivery now builds `/reset-password/#token=...` (no query token).
+Deploy frontend fragment handling before releasing the mail worker; see
+[security rollout](SECURITY-REMEDIATION.md). Queued jobs for an obsolete account
+email are discarded without issuing or sending a reset credential.
+
 Version/audit records contain structured template content, actor public ID,
 reason, request ID, and timestamps. They never contain rendered OTP codes,
 password reset links, Starter access tokens, recipients, or SMTP credentials.

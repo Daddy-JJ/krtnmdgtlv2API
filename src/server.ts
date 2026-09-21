@@ -58,6 +58,9 @@ import { OpaqueTokenService } from './shared/security/opaque-token.ts';
 import { OtpCodeService } from './shared/security/otp-code.ts';
 import { ScryptPasswordHasher } from './shared/security/password-hasher.ts';
 import { AuthenticatedActorService } from './shared/security/authenticated-actor.ts';
+import { MySqlSessionAuthority } from './shared/security/session-authority.ts';
+import { sessionAuthorityMiddleware } from './shared/http/session-authority-middleware.ts';
+import { installProcessSafety } from './shared/http/process-safety.ts';
 import { MySqlPaymentRepository } from './modules/payments/repositories/mysql-payment-repository.ts';
 import { PaymentService } from './modules/payments/services/payment-service.ts';
 import { PaymentController } from './modules/payments/controllers/payment-controller.ts';
@@ -74,6 +77,7 @@ import { ResumeController } from './modules/resume-service/controllers/resume-co
 import { createAdminResumeRouter,createResumeRequestRouter,createResumeRouter } from './modules/resume-service/routes/resume-router.ts';
 import { ResumePrivateStorage } from './modules/resume-service/files/resume-private-storage.ts';
 import { ResumeFileService } from './modules/resume-service/files/resume-file-service.ts';
+import { ClamAvResumeScanner } from './modules/resume-service/files/resume-malware-scanner.ts';
 import { ResumeFileController } from './modules/resume-service/files/resume-file-controller.ts';
 import { ResumeOperationsService } from './modules/resume-service/services/resume-operations-service.ts';
 import { ResumeOperationsController } from './modules/resume-service/controllers/resume-operations-controller.ts';
@@ -161,10 +165,11 @@ const authService = new AuthService({
 });
 const cardRepository = new MySqlCardRepository(pool);
 const actors = new AuthenticatedActorService(accessTokens, csrfTokens);
+const privateSessionGuard = sessionAuthorityMiddleware(actors, new MySqlSessionAuthority(pool), rateLimiter);
 const rbac=new RbacService(pool);
 const landingContentController = new LandingContentController(new LandingContentService(new MySqlLandingContentRepository(pool), rbac), actors);
 const resumeController=new ResumeController(new ResumeService(new MySqlResumeRepository(pool)),actors,rbac);
-const resumeFileController=new ResumeFileController(new ResumeFileService(pool,new ResumePrivateStorage(resolve(backendRoot,'storage/private/resume-service')),rbac),actors);
+const resumeFileController=new ResumeFileController(new ResumeFileService(pool,new ResumePrivateStorage(resolve(backendRoot,'storage/private/resume-service')),rbac,new ClamAvResumeScanner(environment.RESUME_CLAMSCAN_PATH)),actors);
 const resumeOperationsController=new ResumeOperationsController(new ResumeOperationsService(pool,rbac),actors);
 const superAdminController=new SuperAdminController(new SuperAdminService(new MySqlSuperAdminRepository(pool),rbac),actors,rbac);
 const adminMailController=new AdminMailController(new AdminMailService(new MySqlAdminMailRepository(pool),rbac),actors,rbac);
@@ -184,8 +189,10 @@ const app = createApp({
   environment: environment.APP_ENV,
   debug: environment.APP_DEBUG && environment.APP_ENV !== 'production',
   corsAllowedOrigins: environment.CORS_ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter((origin) => origin !== ''),
+  privateSessionGuard,
+  trustProxyHops: environment.TRUST_PROXY_HOPS,
   authRouter: createAuthRouter(new AuthController(authService, cookies)),
-  accountRouter: createAccountRouter(new AccountController(new AccountService(new MySqlAccountRepository(pool)), actors)),
+  accountRouter: createAccountRouter(new AccountController(new AccountService(new MySqlAccountRepository(pool), passwords, rateLimiter), actors, rbac)),
   starterRouter: createStarterRouter(new StarterController(new StarterService({
     email: {
       tokens: new StarterEmailToken(environment.CSRF_HMAC_KEY),
@@ -231,13 +238,4 @@ const server = app.listen(environment.PORT, () => {
   });
 });
 
-async function shutdown(signal: string): Promise<void> {
-  jsonLogger.info('server.stopping', { signal });
-  server.close(async () => {
-    await pool.end();
-    process.exit(0);
-  });
-}
-
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
-process.on('SIGINT', () => void shutdown('SIGINT'));
+installProcessSafety(server, () => pool.end(), jsonLogger);

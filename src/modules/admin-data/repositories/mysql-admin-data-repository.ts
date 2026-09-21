@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { AppError } from '../../../shared/http/errors.ts';
 import {
   ADMIN_DATA_RESOURCES,
@@ -28,18 +27,11 @@ type ColumnRow = RowDataPacket & {
 
 type CountRow = RowDataPacket & { total: number | string };
 
-const integerTypes = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint', 'year']);
-const decimalTypes = new Set(['decimal', 'numeric', 'float', 'double', 'real']);
-const dateTypes = new Set(['date', 'datetime', 'timestamp', 'time']);
 const textTypes = new Set(['char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext', 'enum', 'set']);
 
 function quoteIdentifier(value: string): string {
   if (!/^[a-z][a-z0-9_]*$/i.test(value)) throw new Error('Unsafe SQL identifier rejected.');
   return `\`${value}\``;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function mysqlErrorCode(error: unknown): string | undefined {
@@ -87,7 +79,8 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
     const values: unknown[] = [];
 
     for (const [name, value] of Object.entries(input.filters)) {
-      if (!columnMap.has(name)) throw new AppError(422, 'VALIDATION_ERROR', `Unknown filter column: ${name}.`);
+      const column = columnMap.get(name);
+      if (!column || column.sensitive) throw new AppError(422, 'VALIDATION_ERROR', `Unknown filter column: ${name}.`);
       conditions.push(`${quoteIdentifier(name)} = ?`);
       values.push(value);
     }
@@ -100,8 +93,8 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
     }
 
     const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-    const sort = input.sort ?? schema.primaryKey[0] ?? schema.columns[0]?.name;
-    if (!sort || !columnMap.has(sort)) throw new AppError(422, 'VALIDATION_ERROR', 'Unknown sort column.');
+    const sort = input.sort ?? schema.primaryKey.find((name) => !isSensitiveAdminDataColumn(name)) ?? visibleColumns[0];
+    if (!sort || !columnMap.has(sort) || columnMap.get(sort)?.sensitive) throw new AppError(422, 'VALIDATION_ERROR', 'Unknown sort column.');
     const offset = (input.page - 1) * input.limit;
 
     try {
@@ -129,110 +122,22 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
     }
   }
 
-  async create(resource: AdminDataResource, input: Record<string, unknown>, audit: AdminDataAudit): Promise<Record<string, unknown>> {
-    const schema = await this.#schema(resource);
-    const connection = await this.#pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      const prepared = this.#normalizeBody(schema, input, 'create');
-      const columns = Object.keys(prepared);
-      const expressions = columns.map(() => '?');
-      const values = Object.values(prepared);
-
-      for (const automatic of ['created_at', 'updated_at'] as const) {
-        if (schema.columns.some((column) => column.name === automatic) && !columns.includes(automatic)) {
-          columns.push(automatic);
-          expressions.push('UTC_TIMESTAMP()');
-        }
-      }
-
-      const publicId = schema.columns.find((column) => column.name === 'public_id');
-      if (publicId?.insertable && !columns.includes('public_id')) {
-        columns.push('public_id');
-        expressions.push('?');
-        values.push(randomUUID());
-        prepared.public_id = values.at(-1);
-      }
-
-      const sql = columns.length === 0
-        ? `INSERT INTO ${quoteIdentifier(resource)} () VALUES ()`
-        : `INSERT INTO ${quoteIdentifier(resource)} (${columns.map(quoteIdentifier).join(',')}) VALUES (${expressions.join(',')})`;
-      const [result] = await connection.query<ResultSetHeader>(sql, values);
-      const identifier = schema.primaryKey.map((name) => {
-        const column = schema.columns.find((candidate) => candidate.name === name);
-        if (column?.autoIncrement) return String(result.insertId);
-        const value = prepared[name];
-        if (value === undefined || value === null) throw new Error(`Primary key value was not produced: ${name}`);
-        return encodeURIComponent(String(value));
-      }).join('~');
-      const record = await this.#read(connection, schema, identifier);
-      await this.#audit(connection, audit, 'create', resource, identifier);
-      await connection.commit();
-      return record;
-    } catch (error) {
-      await connection.rollback();
-      translateDatabaseError(error);
-    } finally {
-      connection.release();
-    }
+  async create(_resource: AdminDataResource, _input: Record<string, unknown>, _audit: AdminDataAudit): Promise<Record<string, unknown>> {
+    throw new AppError(405, 'RESOURCE_READ_ONLY', 'Use the purpose-specific administrative endpoint.');
   }
 
-  async update(resource: AdminDataResource, identifier: string, input: Record<string, unknown>, audit: AdminDataAudit): Promise<Record<string, unknown>> {
-    const schema = await this.#schema(resource);
-    const prepared = this.#normalizeBody(schema, input, 'update');
-    const columns = Object.keys(prepared);
-    if (columns.length === 0) throw new AppError(422, 'VALIDATION_ERROR', 'At least one updatable field is required.');
-    const connection = await this.#pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      const target = this.#identifier(schema, identifier);
-      const assignments = columns.map((name) => `${quoteIdentifier(name)} = ?`);
-      const values = Object.values(prepared);
-      if (schema.columns.some((column) => column.name === 'updated_at')) assignments.push('`updated_at` = UTC_TIMESTAMP()');
-      const [result] = await connection.query<ResultSetHeader>(
-        `UPDATE ${quoteIdentifier(resource)} SET ${assignments.join(',')} WHERE ${target.sql}`,
-        [...values, ...target.values],
-      );
-      if (result.affectedRows === 0) await this.#read(connection, schema, identifier);
-      const record = await this.#read(connection, schema, identifier);
-      await this.#audit(connection, audit, 'update', resource, identifier);
-      await connection.commit();
-      return record;
-    } catch (error) {
-      await connection.rollback();
-      translateDatabaseError(error);
-    } finally {
-      connection.release();
-    }
+  async update(_resource: AdminDataResource, _identifier: string, _input: Record<string, unknown>, _audit: AdminDataAudit): Promise<Record<string, unknown>> {
+    throw new AppError(405, 'RESOURCE_READ_ONLY', 'Use the purpose-specific administrative endpoint.');
   }
 
-  async delete(resource: AdminDataResource, identifier: string, audit: AdminDataAudit): Promise<Record<string, unknown>> {
-    const schema = await this.#schema(resource);
-    const connection = await this.#pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      const record = await this.#read(connection, schema, identifier);
-      const target = this.#identifier(schema, identifier);
-      const [result] = await connection.query<ResultSetHeader>(
-        `DELETE FROM ${quoteIdentifier(resource)} WHERE ${target.sql}`,
-        target.values,
-      );
-      if (result.affectedRows === 0) throw new AppError(404, 'RESOURCE_NOT_FOUND', 'The requested record was not found.');
-      await this.#audit(connection, audit, 'delete', resource, identifier);
-      await connection.commit();
-      return record;
-    } catch (error) {
-      await connection.rollback();
-      translateDatabaseError(error);
-    } finally {
-      connection.release();
-    }
+  async delete(_resource: AdminDataResource, _identifier: string, _audit: AdminDataAudit): Promise<Record<string, unknown>> {
+    throw new AppError(405, 'RESOURCE_READ_ONLY', 'Use the purpose-specific administrative endpoint.');
   }
 
   async #schema(resource: AdminDataResource): Promise<AdminDataSchema> {
     const existing = this.#schemas.get(resource);
     if (existing) return existing;
-    const pending = this.#loadSchema(resource);
+    const pending = this.#loadSchema(resource).catch(error => { this.#schemas.delete(resource); throw error; });
     this.#schemas.set(resource, pending);
     return pending;
   }
@@ -252,7 +157,6 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
       const autoIncrement = row.extra.toLowerCase().includes('auto_increment');
       const generated = row.extra.toLowerCase().includes('generated');
       const primary = row.columnKey === 'PRI';
-      const managedTimestamp = row.name === 'updated_at';
       return {
         name: row.name,
         dataType: row.dataType,
@@ -264,8 +168,8 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
         hasDefault: Boolean(row.hasDefault),
         maximumLength: row.maximumLength === null ? null : Number(row.maximumLength),
         sensitive: isSensitiveAdminDataColumn(row.name),
-        insertable: !autoIncrement && !generated,
-        updatable: !autoIncrement && !generated && !primary && !managedTimestamp,
+        insertable: false,
+        updatable: false,
       };
     });
     const primaryKey = columns.filter((column) => column.primary).map((column) => column.name);
@@ -285,7 +189,9 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
   }
 
   #identifier(schema: AdminDataSchema, identifier: string): { sql: string; values: string[] } {
-    const parts = identifier.split('~').map((part) => decodeURIComponent(part));
+    let parts: string[];
+    try { parts = identifier.split('~').map((part) => decodeURIComponent(part)); }
+    catch { throw new AppError(422, 'VALIDATION_ERROR', 'Malformed resource identifier.'); }
     if (parts.length !== schema.primaryKey.length || parts.some((part) => part === '')) {
       throw new AppError(422, 'VALIDATION_ERROR', `Identifier must use format ${schema.identifierFormat}.`);
     }
@@ -306,86 +212,4 @@ export class MySqlAdminDataRepository implements AdminDataRepository {
     return { ...row };
   }
 
-  #normalizeBody(schema: AdminDataSchema, input: Record<string, unknown>, mode: 'create' | 'update'): Record<string, unknown> {
-    if (!isPlainObject(input)) throw new AppError(422, 'VALIDATION_ERROR', 'Request body must be a JSON object.');
-    const columns = new Map(schema.columns.map((column) => [column.name, column]));
-    const prepared: Record<string, unknown> = {};
-    const issues: Array<{ field: string; message: string }> = [];
-
-    for (const [name, value] of Object.entries(input)) {
-      const column = columns.get(name);
-      if (!column || (mode === 'create' ? !column.insertable : !column.updatable)) {
-        issues.push({ field: name, message: 'Field is unknown or not writable.' });
-        continue;
-      }
-      try {
-        prepared[name] = this.#normalizeValue(column, value);
-      } catch (error) {
-        issues.push({ field: name, message: error instanceof Error ? error.message : 'Invalid value.' });
-      }
-    }
-
-    if (mode === 'create') {
-      for (const column of schema.columns) {
-        const automatic = column.autoIncrement || column.generated || column.hasDefault || column.nullable
-          || column.name === 'public_id' || column.name === 'created_at' || column.name === 'updated_at';
-        if (column.insertable && !automatic && !Object.hasOwn(prepared, column.name)) {
-          issues.push({ field: column.name, message: 'Field is required.' });
-        }
-      }
-    }
-
-    if (issues.length > 0) throw new AppError(422, 'VALIDATION_ERROR', 'Validation failed.', issues);
-    return prepared;
-  }
-
-  #normalizeValue(column: AdminDataColumn, value: unknown): unknown {
-    if (value === null) {
-      if (!column.nullable) throw new Error('Field cannot be null.');
-      return null;
-    }
-    if (column.columnType.toLowerCase() === 'tinyint(1)') {
-      if (typeof value === 'boolean') return value ? 1 : 0;
-      if (value === 0 || value === 1) return value;
-      throw new Error('Expected a boolean or 0/1.');
-    }
-    if (integerTypes.has(column.dataType)) {
-      if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-      if (typeof value === 'string' && /^-?[0-9]+$/.test(value)) return value;
-      throw new Error('Expected an integer.');
-    }
-    if (decimalTypes.has(column.dataType)) {
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (typeof value === 'string' && /^-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)$/.test(value)) return value;
-      throw new Error('Expected a number.');
-    }
-    if (dateTypes.has(column.dataType)) {
-      if (typeof value !== 'string' || value.trim() === '') throw new Error('Expected a date/time string.');
-      return value;
-    }
-    if (column.dataType === 'json') {
-      try {
-        return typeof value === 'string' ? JSON.stringify(JSON.parse(value)) : JSON.stringify(value);
-      } catch {
-        throw new Error('Expected valid JSON.');
-      }
-    }
-    if (textTypes.has(column.dataType)) {
-      if (typeof value !== 'string') throw new Error('Expected a string.');
-      if (column.maximumLength !== null && value.length > column.maximumLength) {
-        throw new Error(`Maximum length is ${column.maximumLength} characters.`);
-      }
-      return value;
-    }
-    if (typeof value === 'object') throw new Error('Expected a scalar value.');
-    return value;
-  }
-
-  async #audit(connection: PoolConnection, audit: AdminDataAudit, action: 'create' | 'update' | 'delete', resource: AdminDataResource, identifier: string): Promise<void> {
-    await connection.execute(
-      `INSERT INTO activity_logs(user_id,event,request_id,metadata_text,created_at)
-       SELECT id,?,?,?,UTC_TIMESTAMP() FROM users WHERE public_id=? AND status='active' LIMIT 1`,
-      [`admin.data.${action}`, audit.requestId, JSON.stringify({ resource, identifier }), audit.actorPublicId],
-    );
-  }
 }

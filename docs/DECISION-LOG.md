@@ -76,3 +76,21 @@ and Pro. This decision supersedes the Pro-only WhatsApp entitlement wording in
 ADR-004 and the prior implementation baseline. The backend remains the
 authority: it derives a validated wa.me URL from the saved mobile number for
 every tier; the browser never submits a WhatsApp URL.
+
+## ADR-007 - Pre-release security authority boundaries
+
+Date: 2026-09-21
+
+Status: Approved for backend implementation; production rollout gated
+
+Generic table CRUD is now read-only for every resource. Operational mutations
+remain in domain endpoints with their validation, permission and audit rules.
+Private APIs require active database sessions in addition to signed JWTs.
+Email change requires current-password confirmation and recent authentication;
+reset credentials use URL fragments. Resume files require real antivirus scan
+approval, not signature-only classification. Verified full refunds must revoke
+the affected entitlement, with historical ambiguous cases held for manual review.
+
+No schema migration or production changes are part of this decision. Frontend
+and hosting coordination gates are in `SECURITY-REMEDIATION.md`. ADR-005's
+Midtrans activation restriction remains in force.
