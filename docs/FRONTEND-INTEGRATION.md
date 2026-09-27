@@ -226,6 +226,13 @@ Referensi request:
 
 ## Integration checklist
 
+Password-reset queue changes retain the existing generic HTTP 200 response.
+Frontend must implement the separate 360-second UX cooldown; see the copyable
+[frontend handoff and error behavior](MAIL-QUEUE.md#frontend-agent-handoff).
+SMTP acceptance or inbox delivery cannot be inferred from the forgot-password
+response. Admin reset retry may return existing 409 `MAIL_RETRY_NOT_ALLOWED` when
+another reset is pending or the recipient is no longer eligible.
+
 1. XAMPP MySQL aktif pada port `3306`.
 2. Backend health mengembalikan JSON HTTP 200 pada port `3000`.
 3. Frontend berjalan pada port `8080`.

@@ -1,6 +1,7 @@
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { AuthRepository, AuthTransaction, OtpRecord, RefreshRecord, ResetRecord, UserRecord } from './auth-repository.ts';
 import { normalizeRoles, primaryRole } from '../../../shared/security/roles.ts';
+import { hasPendingPasswordReset } from '../../email/password-reset-queue.ts';
 
 type UserRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string | null; active_roles: string | null; status: string; email_verified_at: Date | null };
 
@@ -89,6 +90,12 @@ class MySqlAuthTransaction implements AuthTransaction {
   async updatePassword(userId: number, passwordHash: string, now: Date): Promise<void> { await this.#connection.execute('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?', [passwordHash, now, userId]); }
 
   async enqueuePasswordResetMail(input: { publicId: string; userId: number; email: string; now: Date }): Promise<void> {
+    // Serialize with other requests and admin retry, even if this repository
+    // method is called without the service's preceding findUserByEmail lock.
+    const [users] = await this.#connection.execute<RowDataPacket[]>(
+      'SELECT id FROM users WHERE id=? AND email=? FOR UPDATE', [input.userId, input.email],
+    );
+    if (!users[0] || await hasPendingPasswordReset(this.#connection, input.userId, input.email)) return;
     await this.#connection.execute(`INSERT INTO mail_outbox
       (public_id, user_id, template_key, recipient_email, subject, payload_text, priority, status, attempts, max_attempts, available_at, created_at, updated_at)
       VALUES (?, ?, 'auth.password-reset', ?, 'Reset password Kartunama Digital', ?, 50, 'queued', 0, 3, ?, ?, ?)`,

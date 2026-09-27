@@ -119,6 +119,17 @@ test('refresh rejects a request without cookie and CSRF credentials', async () =
   assert.equal(response.status, 401);
 });
 
+test('forgot password retains identical generic HTTP 200 for accepted, coalesced and unknown email', async () => {
+  const bodies: unknown[] = [];
+  for (const email of ['known@example.test', 'known@example.test', 'unknown@example.test']) {
+    const response = await call('/api/v1/auth/forgot-password', { email });
+    assert.equal(response.status, 200);
+    bodies.push(await response.json());
+  }
+  assert.deepEqual(bodies[0], { success: true, message: 'If the address is valid, reset instructions will be sent.', data: null });
+  assert.deepEqual(bodies[1], bodies[0]); assert.deepEqual(bodies[2], bodies[0]);
+});
+
 test('authenticated CSRF bootstrap returns a no-store session-bound token and readable cookie', async () => {
   const response = await call('/api/v1/auth/csrf', null, { cookie: 'access_token=access-value' }, 'GET');
   const body = await response.json() as { data: { csrfToken: string } };

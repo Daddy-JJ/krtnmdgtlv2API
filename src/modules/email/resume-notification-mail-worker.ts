@@ -1,6 +1,7 @@
 import type{EmailTemplateDelivery}from'./templates/email-template-delivery.ts';
 import{keySchema}from'./templates/template-content.ts';
 import type{MySqlMailOutboxRepository}from'./mail-outbox-repository.ts';
+import { MailWorkerLockError } from './mail-worker-lock.ts';
 
 export class ResumeNotificationMailWorker{
   readonly #outbox:MySqlMailOutboxRepository;
@@ -19,7 +20,8 @@ export class ResumeNotificationMailWorker{
       await this.#delivery.send(key,job.email,{requestUrl,...(payload.retentionExpiresAt?{retentionExpiresAt:payload.retentionExpiresAt}:{})},job.templateVersion);
       await this.#outbox.markSent(job);
       return true;
-    }catch{
+    }catch(error){
+      if(error instanceof MailWorkerLockError)throw error;
       await this.#outbox.markFailed(job);
       return false;
     }

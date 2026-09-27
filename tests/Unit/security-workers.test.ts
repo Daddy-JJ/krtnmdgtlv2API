@@ -11,6 +11,7 @@ import { PasswordResetMailWorker } from '../../src/modules/email/password-reset-
 import type { MySqlMailOutboxRepository } from '../../src/modules/email/mail-outbox-repository.ts';
 import type { AuthRepository, AuthTransaction } from '../../src/modules/auth/repositories/auth-repository.ts';
 import { OpaqueTokenService } from '../../src/shared/security/opaque-token.ts';
+import { MailWorkerLockError } from '../../src/modules/email/mail-worker-lock.ts';
 
 test('resume upload cannot persist or submit a document when scanner is missing or rejects it', async () => {
   for (const scanner of [new ClamAvResumeScanner(), { assertClean: async () => { throw new AppError(422, 'RESUME_FILE_UNSAFE', 'Rejected.'); } }]) {
@@ -49,6 +50,21 @@ test('password reset mail uses fragment only and drops stale email jobs without 
     if (eligible) { const url = new URL(sent); assert.equal(url.search, ''); assert.match(url.hash, /^#token=.+/); }
     else assert.equal(sent, '');
   }
+});
+
+test('reset worker leaves a claimed job for recovery when worker lock is lost', async () => {
+  let terminalWrites = 0;
+  const tx = { findUserByEmail: async () => ({ id: 7, status: 'active' }), insertPasswordReset: async () => {} } as unknown as AuthTransaction;
+  const outbox = {
+    claimPasswordReset: async () => ({ id: 1, userId: 7, email: 'test@example.test', templateVersion: null }),
+    markSent: async () => { terminalWrites++; }, markFailed: async () => { terminalWrites++; },
+  } as unknown as MySqlMailOutboxRepository;
+  const worker = new PasswordResetMailWorker({ outbox, auth: { transaction: async work => work(tx) } as AuthRepository,
+    tokens: new OpaqueTokenService(), appUrl: 'https://example.test',
+    mailer: { sendRegistrationOtp: async () => {}, sendPasswordReset: async () => { throw new MailWorkerLockError(); } },
+  });
+  await assert.rejects(worker.runOnce(), MailWorkerLockError);
+  assert.equal(terminalWrites, 0);
 });
 
 test('fatal exception/rejection terminates without exposing exception contents', async () => {

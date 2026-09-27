@@ -87,6 +87,10 @@ Run `npm run mail:work` to process password-reset, Resume, and template-test job
 Starter and OTP remain synchronous. Test jobs can remain queued until the worker
 runs. SMTP configuration stays in `.env` and is never returned by the API.
 
+The cron worker is guarded by a database-specific lock; pending password-reset
+requests coalesce by account and destination. See [mail queue operations](MAIL-QUEUE.md)
+for overlap handling, retry rules, six-minute cron configuration, and limitations.
+
 Password-reset delivery now builds `/reset-password/#token=...` (no query token).
 Deploy frontend fragment handling before releasing the mail worker; see
 [security rollout](SECURITY-REMEDIATION.md). Queued jobs for an obsolete account

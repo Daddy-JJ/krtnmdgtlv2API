@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, randomUUID } from 'node:crypto';
 import { verifyResumeRoleMerge } from './resume-role-merge.ts';
+import { verifyMailQueue } from './mail-queue.ts';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -46,7 +47,7 @@ import { MySqlAccountRepository } from '../../src/modules/account/repositories/m
 
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
 
-test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled }, async () => {
+test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled }, async (t) => {
   const testDatabase = process.env.TEST_DB_DATABASE ?? '';
   assert.ok(/_test$/i.test(testDatabase) && testDatabase !== process.env.DB_DATABASE, 'Explicit isolated _test target required');
   const pool = createDatabasePool(parseEnvironment({
@@ -500,6 +501,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '012_whatsapp_all_tiers.sql',
     ]);
     assert.equal((await seeds.run()).length, 2);
+    await t.test('mail queue concurrency, admin retry, worker lock and reset token lifecycle', () => verifyMailQueue(pool));
   } finally {
     await pool.end();
   }

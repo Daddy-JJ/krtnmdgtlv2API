@@ -12,6 +12,8 @@ Security hardening pra-rilis: baca [laporan dan checklist rollout](docs/SECURITY
 sebelum deploy. Ada perubahan kontrak perubahan email, reset-password fragment,
 health publik, admin data read-only, dan kewajiban scanner berkas CV.
 
+Operasional email reset: lihat [mail queue, cron enam menit, dan handoff cooldown frontend](docs/MAIL-QUEUE.md).
+
 ## Source of truth
 
 Folder project yang menjadi acuan tunggal saat ini adalah:

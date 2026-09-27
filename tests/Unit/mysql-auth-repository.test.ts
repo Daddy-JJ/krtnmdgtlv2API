@@ -27,3 +27,25 @@ test('user lookup fails closed when no active canonical role is assigned', async
 
   assert.equal(result, null);
 });
+
+test('reset enqueue preserves a pending job without changing its schedule, attempts or token', async () => {
+  for (const pending of [true, false]) {
+    const queries: string[] = [];
+    const connection = {
+      beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release: () => {},
+      execute: async (sql: string) => {
+        queries.push(sql);
+        if (sql.startsWith('SELECT id FROM users')) return [[{ id: 7 }]];
+        if (sql.startsWith('SELECT id FROM mail_outbox')) return [pending ? [{ id: 9 }] : []];
+        if (sql.startsWith('INSERT INTO mail_outbox')) return [{ affectedRows: 1 }];
+        assert.fail('Unexpected mutation');
+      },
+    } as unknown as PoolConnection;
+    const repo = new MySqlAuthRepository({ getConnection: async () => connection } as unknown as Pool);
+    await repo.transaction(tx => tx.enqueuePasswordResetMail({ publicId: 'job', userId: 7, email: 'test@example.test', now: new Date() }));
+    assert.match(queries[0]!, /users.*FOR UPDATE/);
+    assert.match(queries[1]!, /status IN \('queued','processing'\)/);
+    assert.equal(queries.some(sql => sql.startsWith('INSERT')), !pending);
+    assert.equal(queries.some(sql => sql.startsWith('UPDATE')), false);
+  }
+});

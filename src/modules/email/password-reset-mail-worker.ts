@@ -3,6 +3,7 @@ import type { OpaqueTokenService } from '../../shared/security/opaque-token.ts';
 import type { EmailTemplateDelivery } from './templates/email-template-delivery.ts';
 import type { MailerPort } from './mailer-port.ts';
 import type { MySqlMailOutboxRepository } from './mail-outbox-repository.ts';
+import { MailWorkerLockError } from './mail-worker-lock.ts';
 
 export class PasswordResetMailWorker {
   readonly #outbox: MySqlMailOutboxRepository;
@@ -43,6 +44,7 @@ export class PasswordResetMailWorker {
       await this.#outbox.markSent(job);
       return true;
     } catch (error) {
+      if (error instanceof MailWorkerLockError) throw error;
       const details = error && typeof error === 'object' ? error as { code?: unknown; responseCode?: unknown; command?: unknown } : {};
       process.stderr.write(`${JSON.stringify({
         event: 'mail.delivery_failed',
