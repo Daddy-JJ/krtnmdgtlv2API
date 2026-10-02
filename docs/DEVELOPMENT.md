@@ -54,7 +54,7 @@ Kelompok konfigurasi utama:
 - `TEST_DB_*`: database integration test yang namanya wajib berakhiran `_test`.
 - `CORS_ALLOWED_ORIGINS`: exact origin frontend, tanpa wildcard.
 - `JWT_*`, `CSRF_HMAC_KEY`, `OTP_HMAC_KEY`: security secrets lokal.
-- `MIDTRANS_*` dan `MAIL_*`: integrasi eksternal yang dapat dinonaktifkan lokal.
+- `DUITKU_*`, `PAYMENT_CHECKOUT_ENABLED` dan `MAIL_*`: integrasi eksternal yang dapat dinonaktifkan lokal. Checkout dan Duitku default disabled; merchant sandbox/key boleh kosong sampai tersedia.
 - `EMAIL_TEMPLATES_ENABLED`: default `false`; set `true` only after migration
   010 is applied and verified. See `EMAIL-TEMPLATES.md`.
 

@@ -1,6 +1,6 @@
 # Backend SOT Manifest
 
-Updated: 2026-09-19
+Updated: 2026-10-02
 
 ## Scope and authority
 
@@ -31,3 +31,14 @@ is an optional database administration tool, not an application runtime.
 
 Never treat documentation alone as proof of a live database or service. Runtime
 claims require successful preflight, health, and integration evidence.
+
+## Payment provider transition
+
+ADR-008 selects Duitku POP redirect for future checkout and supersedes only the
+Midtrans provider direction in ADR-005. Checkout remains disabled unless the owner
+approves activation after backend/frontend compatibility and sandbox/UAT gates.
+ADR-009 retires all Midtrans runtime code, SDK, configuration and webhook.
+Historical financial rows and provider labels remain intact and readable; old-provider
+reconcile returns 410 PAYMENT_PROVIDER_RETIRED with no Duitku network request.
+Refund/subscription domain integrity remains; automated provider refunds are not
+implemented. See `docs/DUITKU-PAYMENTS.md` for migration 013, rollback and handover.

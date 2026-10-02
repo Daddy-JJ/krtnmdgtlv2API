@@ -45,14 +45,14 @@ test('production environment requires HTTPS, Secure cookies, and authenticated v
   }), /APP_URL|COOKIE_SECURE|MAIL_USERNAME|MAIL_PASSWORD|MAIL_VERIFY_PEER/);
 });
 
-test('enabled Midtrans configuration fails closed without credentials and callback URLs', () => {
+test('enabled Duitku configuration fails closed without merchant credentials and callback URLs', () => {
   assert.throws(() => parseEnvironment({
     DB_DATABASE: 'digital_identity_test', DB_USERNAME: 'root',
     CSRF_HMAC_KEY: '0123456789abcdef0123456789abcdef', OTP_HMAC_KEY: 'abcdef0123456789abcdef0123456789',
-    MIDTRANS_ENABLED: 'true', MIDTRANS_SERVER_KEY: 'must-not-appear-in-error',
+    DUITKU_ENABLED: 'true', DUITKU_SANDBOX_API_KEY: 'must-not-appear-in-error',
   }), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, /MIDTRANS_CLIENT_KEY|MIDTRANS_MERCHANT_ID|MIDTRANS_NOTIFICATION_URL/);
+    assert.match(error.message, /DUITKU_SANDBOX_MERCHANT_CODE|DUITKU_SANDBOX_CALLBACK_URL/);
     assert.doesNotMatch(error.message, /must-not-appear-in-error/);
     return true;
   });

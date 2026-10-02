@@ -1,0 +1,846 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "KartuNamaDigital payment module (backend-owned)",
+    "version": "2026-10-01",
+    "description": "Partial module contract, not the complete API. Checkout defaults disabled. See DUITKU-PAYMENTS.md. No browser result can activate subscription."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000/api/v1",
+      "description": "Local"
+    },
+    {
+      "url": "https://api.kartunamadigital.id/api/v1",
+      "description": "Production (new checkout not authorized)"
+    }
+  ],
+  "security": [
+    {
+      "CookieSession": []
+    }
+  ],
+  "paths": {
+    "/payments/capabilities": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Authenticated feature/config status; not eligibility.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/checkout": {
+      "post": {
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Same user + same plan intent reuse key on timeout/retry. Different payload ->409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "planCode"
+                ],
+                "properties": {
+                  "planCode": {
+                    "enum": [
+                      "basic",
+                      "pro"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Owned checkout result. Redirect only when pending and URL exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentEnvelope"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Attempt persists; no usable URL yet. Do not issue a new invoice.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF or verified-account/card eligibility rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency payload conflict or prior pending attempt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid fields or missing/invalid UUID key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "User rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Invalid provider response/redirect/reference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Checkout disabled or provider unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Owned payments only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentListEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{publicId}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "publicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned payment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or inaccessible payment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid identifier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{publicId}/reconcile": {
+      "post": {
+        "parameters": [
+          {
+            "name": "publicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "description": "Owner only; server status evidence. Durable 30s cooldown; shared merchant bucket. No browser resultCode input.",
+        "responses": {
+          "200": {
+            "description": "Committed verified outcome.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or inaccessible payment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "PAYMENT_PROVIDER_RETIRED: historical provider requires manual review. No external request.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "429": {
+            "description": "Verification rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Stored provider/status verification unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/current": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Existing current subscription or null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/duitku/callback": {
+      "post": {
+        "security": [],
+        "description": "Exact public callback route only. HMAC then independent S2S status + committed DB application. <=16KiB /40 fields. Browser never calls this endpoint.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/DuitkuCallback"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Committed application or valid terminal replay.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "const": "OK"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid signature or payment evidence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body or parameter limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Non-form content type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unverified external status/temporary throttle. No activation; provider must retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "CookieSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token"
+      }
+    },
+    "schemas": {
+      "Payment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publicId",
+          "merchantOrderId",
+          "provider",
+          "environment",
+          "status",
+          "invoiceState",
+          "targetPlanCode",
+          "planName",
+          "amount",
+          "currency",
+          "durationDays",
+          "redirectUrl",
+          "expiresAt",
+          "gatewayStatus",
+          "paidAt",
+          "createdAt"
+        ],
+        "properties": {
+          "publicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merchantOrderId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Duitku for active payments; historical retired provider labels are preserved read-only. Reconcile returns 410 PAYMENT_PROVIDER_RETIRED."
+          },
+          "environment": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sandbox",
+              "production",
+              null
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "failed",
+              "expired",
+              "canceled",
+              "refunded",
+              "refund_pending_review"
+            ]
+          },
+          "invoiceState": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "creating",
+              "ready",
+              "unknown",
+              "verified"
+            ]
+          },
+          "targetPlanCode": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "pro"
+            ]
+          },
+          "planName": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "currency": {
+            "const": "IDR"
+          },
+          "durationDays": {
+            "const": 365
+          },
+          "redirectUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "Private provider URL only while pending. Do not log; reference is embedded."
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "gatewayStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paidAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaymentEnvelope": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Payment"
+          }
+        }
+      },
+      "PaymentListEnvelope": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Payment"
+            }
+          }
+        }
+      },
+      "CapabilitiesEnvelope": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Capabilities"
+          }
+        }
+      },
+      "Capabilities": {
+        "type": "object",
+        "required": [
+          "checkoutEnabled",
+          "provider",
+          "environment",
+          "idempotencyKeyRequired",
+          "reconcileCooldownSeconds"
+        ],
+        "properties": {
+          "checkoutEnabled": {
+            "type": "boolean"
+          },
+          "provider": {
+            "const": "duitku"
+          },
+          "environment": {
+            "enum": [
+              "sandbox",
+              "production"
+            ]
+          },
+          "idempotencyKeyRequired": {
+            "const": true
+          },
+          "reconcileCooldownSeconds": {
+            "const": 30
+          }
+        }
+      },
+      "OutcomeEnvelope": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Outcome"
+          }
+        }
+      },
+      "Outcome": {
+        "type": "object",
+        "required": [
+          "result",
+          "paymentPublicId",
+          "paymentStatus"
+        ],
+        "properties": {
+          "result": {
+            "enum": [
+              "processed",
+              "duplicate",
+              "ignored"
+            ]
+          },
+          "paymentPublicId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "paymentStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SubscriptionEnvelope": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "publicId",
+                  "planCode",
+                  "status",
+                  "startsAt",
+                  "endsAt"
+                ],
+                "properties": {
+                  "publicId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "planCode": {
+                    "enum": [
+                      "basic",
+                      "pro"
+                    ]
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "DuitkuCallback": {
+        "type": "object",
+        "maxProperties": 40,
+        "required": [
+          "merchantCode",
+          "merchantOrderId",
+          "amount",
+          "reference",
+          "resultCode",
+          "signature"
+        ],
+        "additionalProperties": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "properties": {
+          "merchantCode": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,50}$"
+          },
+          "merchantOrderId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,50}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d{0,14})(?:\\.00)?$",
+            "description": "Original amount string signed exactly; must be positive safe integer."
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,150}$",
+            "description": "Unsigned; corroborate with saved reference and independent status."
+          },
+          "resultCode": {
+            "enum": [
+              "00",
+              "01"
+            ],
+            "description": "Unsigned callback code; never use to grant rights."
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "writeOnly": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "code"
+        ],
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "data": {
+            "description": "Safe optional error context, e.g. owned publicId."
+          },
+          "errors": {
+            "description": "Validation contract; never keys or provider PII."
+          }
+        }
+      }
+    }
+  }
+}

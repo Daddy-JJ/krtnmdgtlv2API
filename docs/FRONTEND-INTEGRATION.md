@@ -1,5 +1,15 @@
 # Frontend Integration
 
+## Payment transition (2026-10-01)
+
+Use [Duitku POP handover](DUITKU-PAYMENTS.md) and [payment OpenAPI](PAYMENTS.openapi.yaml).
+New checkout needs a UUID Idempotency-Key, supports HTTP 202, and returns a neutral
+redirectUrl/provider contract, not snapToken. Read authenticated capabilities;
+backend checkout remains disabled until owner-approved sandbox/UAT and activation.
+Frontend price, browser resultCode and provider reference are never payment evidence.
+Retired historical providers return 410 PAYMENT_PROVIDER_RETIRED on reconcile:
+show manual support review, never create a replacement order automatically.
+
 ## Local endpoints
 
 ```text

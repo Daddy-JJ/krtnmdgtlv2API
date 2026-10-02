@@ -33,6 +33,13 @@ non-enumerating card-not-found contract. Renderer failures return a safe 503.
 
 ## Super Admin boundary
 
+Payment processing remains in the existing payments/subscriptions modules. ADR-008
+adds Duitku POP. ADR-009 removes the old provider runtime completely; historical
+financial records remain readable, but require manual provider review (HTTP 410).
+User-row locking and the unique payment event ledger serialize checkout intents
+and subscription activation; network create/status run outside DB transactions.
+See [payment transition and recovery](DUITKU-PAYMENTS.md). Checkout defaults disabled.
+
 Workspace Super Admin memakai endpoint domain untuk feedback, card recovery,
 reports, system, security, mail, template, landing page, dan Resume Service.
 Generic `/admin/data` bukan business workflow. Seluruh tabel read-only pada

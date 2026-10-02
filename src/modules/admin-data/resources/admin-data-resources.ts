@@ -64,7 +64,7 @@ export function isReadOnlyAdminDataResource(value: AdminDataResource): boolean {
   return !genericMutableResourceSet.has(value);
 }
 
-const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$|^storage_path$|^snap_redirect_url$|^payload_text$|^response_message$|^metadata_text$)/i;
+const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$|^storage_path$|^snap_redirect_url$|^gateway_redirect_url$|^gateway_reference$|^payload_text$|^response_message$|^metadata_text$)/i;
 
 export function isSensitiveAdminDataColumn(column: string): boolean {
   return sensitiveColumnPattern.test(column);

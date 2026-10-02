@@ -72,7 +72,7 @@ Jika response berisi halaman HTML XAMPP/PHP, request kemungkinan dikirim ke
 
 Nama field yang salah akan disebutkan tanpa menampilkan nilainya. Bandingkan
 struktur `.env` dengan `.env.example`. Periksa DB, HMAC key minimum 32 karakter,
-cookie policy, URL, port, dan konfigurasi Midtrans/SMTP yang diaktifkan.
+cookie policy, URL, port, dan konfigurasi Duitku/SMTP yang diaktifkan.
 
 ### JWT key `ENOENT` atau permission error
 

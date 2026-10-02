@@ -27,6 +27,8 @@ test('Postman collection covers the deploy-gate CRUD and public contracts', asyn
     ['GET', '/public/cards/{{publicSlug}}'], ['GET', '/qr'], ['GET', '/vcard'],
     ['GET', '/starter/cards/{{starterPublicId}}/signup-context'],
     ['POST', '/payments/checkout'], ['GET', '/payments'], ['GET', '/subscriptions/current'],
+    ['GET', '/payments/capabilities'], ['POST', '/payments/{{paymentPublicId}}/reconcile'],
+    ['POST', '/payments/duitku/callback'],
   ] as const;
 
   for (const [method, suffix] of required) {
@@ -34,4 +36,6 @@ test('Postman collection covers the deploy-gate CRUD and public contracts', asyn
   }
   assert.match(collectionSource, /Starter slug is exactly seven ASCII letters/);
   assert.match(collectionSource, /WhatsApp URL is exposed for all tiers/);
+  assert.match(collectionSource, /Idempotency-Key/);
+  assert.match(collectionSource, /pm.execution.skipRequest/);
 });

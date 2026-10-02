@@ -47,13 +47,13 @@ test('all private route families reject missing, invalid and revoked sessions be
 });
 
 test('signed payment webhook and public auth do not inherit browser session failures', async () => {
-  const payment = Router().post('/midtrans/webhook', (_req, res) => { res.json({ signedWebhookHandlerReached: true }); });
+  const payment = Router().post('/duitku/callback', (_req, res) => { res.json({ signedWebhookHandlerReached: true }); });
   const auth = Router().post('/login', (_req, res) => { res.json({ loginHandlerReached: true }); });
   const app = createApp({ databaseHealth: { check: async () => ({ healthy: true, latencyMs: 1 }) }, environment: 'production', logger, paymentRouter: payment, authRouter: auth,
     privateSessionGuard: sessionAuthorityMiddleware(actors, { isActive: async () => { throw new Error('must not query'); } }),
   });
   await serve(app, async base => {
-    for (const path of ['/payments/midtrans/webhook', '/auth/login']) assert.equal((await fetch(base + path, { method: 'POST', headers: { cookie: 'access_token=stale' } })).status, 200);
+    for (const path of ['/payments/duitku/callback', '/auth/login']) assert.equal((await fetch(base + path, { method: 'POST', headers: { cookie: 'access_token=stale' },body:path.includes('callback')?'amount=1':'',...(path.includes('callback')?{headers:{cookie:'access_token=stale','content-type':'application/x-www-form-urlencoded'}}:{}) })).status, 200);
   });
 });
 

@@ -44,16 +44,20 @@ const environmentSchema = z.object({
   OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
   OTP_RESEND_COOLDOWN_SECONDS: z.coerce.number().int().min(30).max(600).default(60),
   OTP_SEND_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(20).default(5),
-  MIDTRANS_ENABLED: booleanValue.default(false),
-  MIDTRANS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
-  MIDTRANS_SERVER_KEY: z.string().default(''),
-  MIDTRANS_CLIENT_KEY: z.string().default(''),
-  MIDTRANS_MERCHANT_ID: z.string().default(''),
-  MIDTRANS_NOTIFICATION_URL: optionalString,
-  MIDTRANS_FINISH_URL: optionalString,
-  MIDTRANS_UNFINISH_URL: optionalString,
-  MIDTRANS_ERROR_URL: optionalString,
-  MIDTRANS_HTTP_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(60).default(10),
+  PAYMENT_PROVIDER: z.literal('duitku').default('duitku'),
+  PAYMENT_CHECKOUT_ENABLED: booleanValue.default(false),
+  DUITKU_ENABLED: booleanValue.default(false),
+  DUITKU_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  DUITKU_SANDBOX_MERCHANT_CODE: z.string().default(''),
+  DUITKU_SANDBOX_API_KEY: z.string().default(''),
+  DUITKU_SANDBOX_CALLBACK_URL: optionalString,
+  DUITKU_SANDBOX_RETURN_URL: optionalString,
+  DUITKU_PRODUCTION_MERCHANT_CODE: z.string().default(''),
+  DUITKU_PRODUCTION_API_KEY: z.string().default(''),
+  DUITKU_PRODUCTION_CALLBACK_URL: optionalString,
+  DUITKU_PRODUCTION_RETURN_URL: optionalString,
+  DUITKU_HTTP_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(30).default(10),
+  DUITKU_EXPIRY_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
   MAIL_HOST: z.string().min(1).default('mail.kartunamadigital.id'),
   MAIL_PORT: z.coerce.number().int().min(1).max(65535).default(465),
   MAIL_ENCRYPTION: z.enum(['ssl', 'tls']).default('ssl'),
@@ -66,6 +70,24 @@ const environmentSchema = z.object({
   MAIL_VERIFY_PEER: booleanValue.default(true),
   EMAIL_TEMPLATES_ENABLED: booleanValue.default(false),
 }).superRefine((value, context) => {
+  const invalid = (field: string) => context.addIssue({ code:'custom', path:[field], message:'Payment configuration is invalid.' });
+  if (value.PAYMENT_CHECKOUT_ENABLED && !value.DUITKU_ENABLED) invalid('PAYMENT_CHECKOUT_ENABLED');
+  for (const mode of ['SANDBOX','PRODUCTION'] as const) {
+    const code = value[`DUITKU_${mode}_MERCHANT_CODE`], key = value[`DUITKU_${mode}_API_KEY`];
+    const callback = value[`DUITKU_${mode}_CALLBACK_URL`], returnUrl = value[`DUITKU_${mode}_RETURN_URL`];
+    const required = value.DUITKU_ENABLED && (value.DUITKU_ENV.toUpperCase() === mode || !!code || !!key);
+    if (!required) continue;
+    if (!/^[A-Za-z0-9_-]{1,50}$/.test(code)) invalid(`DUITKU_${mode}_MERCHANT_CODE`);
+    if (!key.trim()) invalid(`DUITKU_${mode}_API_KEY`);
+    for (const [suffix, url] of [['CALLBACK_URL',callback],['RETURN_URL',returnUrl]] as const) {
+      try {
+        const u = new URL(url ?? '');
+        if ((url?.length??0)>255 || u.username || u.password || u.hash || !['http:','https:'].includes(u.protocol) || (mode === 'PRODUCTION' && u.protocol !== 'https:')
+          || (suffix === 'CALLBACK_URL' && (u.pathname !== '/api/v1/payments/duitku/callback' || u.search))) throw new Error();
+      } catch { invalid(`DUITKU_${mode}_${suffix}`); }
+    }
+  }
+  if (value.DUITKU_ENABLED && value.DUITKU_SANDBOX_MERCHANT_CODE && value.DUITKU_SANDBOX_MERCHANT_CODE === value.DUITKU_PRODUCTION_MERCHANT_CODE) invalid('DUITKU_PRODUCTION_MERCHANT_CODE');
   for (const origin of value.CORS_ALLOWED_ORIGINS.split(',').map(item => item.trim()).filter(Boolean)) {
     let valid = false;
     try {
@@ -74,15 +96,6 @@ const environmentSchema = z.object({
         && (value.APP_ENV !== 'production' || url.protocol === 'https:');
     } catch { /* Rejected below without echoing configuration values. */ }
     if (!valid) context.addIssue({ code: 'custom', path: ['CORS_ALLOWED_ORIGINS'], message: 'CORS entries must be exact HTTP(S) origins; production requires HTTPS.' });
-  }
-  if (value.MIDTRANS_ENABLED) {
-    for (const field of ['MIDTRANS_SERVER_KEY', 'MIDTRANS_CLIENT_KEY', 'MIDTRANS_MERCHANT_ID'] as const) {
-      if (value[field].trim() === '') context.addIssue({ code: 'custom', path: [field], message: `${field} is required when Midtrans is enabled.` });
-    }
-    for (const field of ['MIDTRANS_NOTIFICATION_URL', 'MIDTRANS_FINISH_URL', 'MIDTRANS_UNFINISH_URL', 'MIDTRANS_ERROR_URL'] as const) {
-      const url = value[field];
-      if (!url || !URL.canParse(url) || (value.APP_ENV === 'production' && !url.startsWith('https://'))) context.addIssue({ code: 'custom', path: [field], message: `${field} must be a valid${value.APP_ENV === 'production' ? ' HTTPS' : ''} URL.` });
-    }
   }
   if (value.APP_ENV !== 'production') return;
   if (!value.COOKIE_SECURE) context.addIssue({ code: 'custom', path: ['COOKIE_SECURE'], message: 'Production cookies must be Secure.' });
@@ -102,6 +115,9 @@ export function parseEnvironment(values: NodeJS.ProcessEnv): Environment {
     throw new Error(`Invalid environment configuration: ${[...new Set(fields)].join(', ')}`);
   }
 
+  if (result.data.DUITKU_ENABLED && values.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    throw new Error('Invalid environment configuration: NODE_TLS_REJECT_UNAUTHORIZED');
+  }
   return result.data;
 }
 

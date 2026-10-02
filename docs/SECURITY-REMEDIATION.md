@@ -68,8 +68,8 @@ entitlement to revoke and must be investigated.
 Partial refunds retain the paid term and log `payment.partial-refund-pending-review`.
 Automatic partial-period proration is not defined. Existing delivered CV work,
 downloaded files and past benefits cannot be undone by changing tier; no files or
-historical ledger rows are deleted. Midtrans remains disabled unless separately
-configured and approved; tests use fake verified notifications, not the gateway.
+historical ledger rows are deleted. ADR-009 removes the previous provider runtime;
+tests use normalized refund evidence, not an automatic provider refund API.
 
 ## Deployment gates (not executed in production)
 

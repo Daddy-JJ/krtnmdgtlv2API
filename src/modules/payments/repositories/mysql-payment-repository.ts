@@ -1,40 +1,89 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { CheckoutAuthority, CurrentSubscription, NotificationOutcome, PaymentNotification, PaymentRecord, PaymentRepository } from './payment-repository.ts';
+import { AppError } from '../../../shared/http/errors.ts';
+import { priceCheckout } from '../services/payment-policy.ts';
 
 type AuthorityRow = RowDataPacket & { user_id: number; email: string; full_name: string; current_plan_code: 'starter' | 'basic' | 'pro'; code: 'basic' | 'pro'; name: string; price_amount: number | string; currency: string; duration_days: number };
-type PaymentRow = RowDataPacket & { public_id: string; merchant_order_id: string; target_plan_code: string; plan_name_snapshot: string; duration_days_snapshot: number; amount: number | string; currency: string; status: string; gateway_status: string | null; snap_redirect_url: string | null; paid_at: Date | null; expires_at: Date | null; created_at: Date };
-type CurrentPaymentRow = RowDataPacket & { id: number; public_id: string; user_id: number; amount: number | string; status: string; target_plan_code: 'basic' | 'pro'; duration_days_snapshot: number; subscription_id: number | null };
+type PaymentRow = RowDataPacket & { id:number; public_id: string; merchant_order_id: string; target_plan_code: string; plan_name_snapshot: string; duration_days_snapshot: number; amount: number | string; currency: string; status: string; gateway_status: string | null; paid_at: Date | null; expires_at: Date | null; created_at: Date;gateway:string;gateway_environment:PaymentRecord['environment'];merchant_code_snapshot:string|null;gateway_reference:string|null;gateway_redirect_url:string|null;invoice_state:string };
+type CurrentPaymentRow = PaymentRow & { id: number; user_id: number; target_plan_code: 'basic' | 'pro'; subscription_id: number | null };
 type SubscriptionRow = RowDataPacket & { id: number; plan_code: 'basic' | 'pro'; status: string; starts_at: Date; ends_at: Date };
 type PeriodRow = RowDataPacket & { id: number; period_start: Date; period_end: Date };
-const payment = (row: PaymentRow): PaymentRecord => ({ publicId: row.public_id, merchantOrderId: row.merchant_order_id, targetPlanCode: row.target_plan_code, planName: row.plan_name_snapshot, durationDays: row.duration_days_snapshot, amount: Number(row.amount), currency: row.currency, status: row.status, gatewayStatus: row.gateway_status, redirectUrl: row.snap_redirect_url, paidAt: row.paid_at, expiresAt: row.expires_at, createdAt: row.created_at });
-const columns = 'p.public_id,p.merchant_order_id,p.target_plan_code,p.plan_name_snapshot,p.duration_days_snapshot,p.amount,p.currency,p.status,p.gateway_status,p.snap_redirect_url,p.paid_at,p.expires_at,p.created_at';
+const payment = (row: PaymentRow): PaymentRecord => ({ publicId: row.public_id, merchantOrderId: row.merchant_order_id, targetPlanCode: row.target_plan_code, planName: row.plan_name_snapshot, durationDays: row.duration_days_snapshot, amount: Number(row.amount), currency: row.currency, status: row.status, gatewayStatus: row.gateway_status, redirectUrl: row.gateway_redirect_url, paidAt: row.paid_at, expiresAt: row.expires_at, createdAt: row.created_at,provider:row.gateway,environment:row.gateway_environment,merchantCode:row.merchant_code_snapshot,reference:row.gateway_reference,invoiceState:row.invoice_state });
+const columns = 'p.id,p.public_id,p.merchant_order_id,p.target_plan_code,p.plan_name_snapshot,p.duration_days_snapshot,p.amount,p.currency,p.status,p.gateway_status,p.paid_at,p.expires_at,p.created_at,p.gateway,p.gateway_environment,p.merchant_code_snapshot,p.gateway_reference,p.gateway_redirect_url,p.invoice_state';
 
 export class MySqlPaymentRepository implements PaymentRepository {
   readonly #pool: Pool;
   constructor(pool: Pool) { this.#pool = pool; }
 
+  async reserveCheckout(input: Parameters<PaymentRepository['reserveCheckout']>[0]) {
+    const c = await this.#pool.getConnection();
+    try {
+      await c.beginTransaction();
+      const [users] = await c.execute<Array<RowDataPacket & { id:number }>>("SELECT id FROM users WHERE public_id=? AND status='active' FOR UPDATE",[input.userPublicId]);
+      if (!users[0]) throw new AppError(403,'CHECKOUT_NOT_ALLOWED','A verified account with a claimed active card is required.');
+      const userId = users[0].id;
+      const eventKey = `checkout:${input.keyHash}`;
+      const [prior] = await c.execute<Array<RowDataPacket & { payload_hash:string;payment_id:number }>>('SELECT payload_hash,payment_id FROM payment_events WHERE gateway_event_key=? FOR UPDATE',[eventKey]);
+      if (prior[0]) {
+        if (prior[0].payload_hash !== input.requestHash) throw new AppError(409,'IDEMPOTENCY_CONFLICT','Idempotency key was used for another checkout request.');
+        const [rows] = await c.execute<PaymentRow[]>(`SELECT ${columns} FROM payments p WHERE p.id=? AND p.user_id=?`,[prior[0].payment_id,userId]);
+        if (!rows[0]) throw new AppError(409,'PAYMENT_EVENT_CONFLICT','Checkout evidence is unavailable.');
+        await c.commit(); return { payment:payment(rows[0]),authority:null,created:false };
+      }
+      const [pending] = await c.execute<PaymentRow[]>(`SELECT ${columns} FROM payments p WHERE p.user_id=? AND p.status='pending' ORDER BY p.id DESC LIMIT 1 FOR UPDATE`,[userId]);
+      let result:PaymentRecord, paymentId:number, authority:CheckoutAuthority|null = null, created = false;
+      if (pending[0]) {
+        result = payment(pending[0]);
+        paymentId = pending[0].id;
+        if (result.targetPlanCode !== input.planCode || result.provider !== input.provider || result.environment !== input.environment || result.merchantCode !== input.merchantCode) throw new AppError(409,'CHECKOUT_PENDING_EXISTS','A previous checkout requires resolution.',{publicId:result.publicId});
+      } else {
+        // Use the same repository lookup against this locked transaction.
+        const scoped = new MySqlPaymentRepository(c as unknown as Pool);
+        const found = await scoped.findCheckoutAuthority(input.userPublicId,input.planCode);
+        if (!found) throw new AppError(403,'CHECKOUT_NOT_ALLOWED','A verified account with a claimed active card is required.');
+        authority = priceCheckout(found);
+        const a = authority;
+        const expiry = new Date(input.now.getTime() + input.expiryMinutes * 60000);
+        await c.execute(`INSERT INTO payments(public_id,user_id,gateway,gateway_environment,merchant_code_snapshot,merchant_order_id,target_plan_code,plan_name_snapshot,duration_days_snapshot,amount,currency,status,invoice_state,expires_at,created_at,updated_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending','creating',?,?,?)`,[input.publicId,userId,input.provider,input.environment,input.merchantCode,input.orderId,a.targetPlan.code,a.targetPlan.name,a.targetPlan.durationDays,a.targetPlan.amount,a.targetPlan.currency,expiry,input.now,input.now]);
+        const [rows] = await c.execute<PaymentRow[]>(`SELECT ${columns} FROM payments p WHERE p.public_id=?`,[input.publicId]);
+        result = payment(rows[0]!); paymentId = rows[0]!.id; created = true;
+      }
+      // The payment row is already locked. INSERT...SELECT by public_id would
+      // acquire its secondary index after PRIMARY, inverting attachInvoice's
+      // secondary-index -> PRIMARY order and deadlocking concurrent checkout.
+      await c.execute(`INSERT INTO payment_events(payment_id,gateway_event_key,payload_hash,event_type,received_at,processed_at,processing_status)
+        VALUES(?,?,?,'checkout_request',?,?,'recorded')`,[paymentId,eventKey,input.requestHash,input.now,input.now]);
+      await c.commit(); return { payment:result,authority,created };
+    } catch (error) { await c.rollback(); throw error; } finally { c.release(); }
+  }
+
+  async attachInvoice(publicId:string,reference:string|null,redirectUrl:string,now:Date):Promise<PaymentRecord> {
+    const [result] = await this.#pool.execute<ResultSetHeader>(`UPDATE payments SET gateway_reference=COALESCE(gateway_reference,?),gateway_redirect_url=?,invoice_state='ready',updated_at=?
+      WHERE public_id=? AND (gateway_reference IS NULL OR gateway_reference <=> ?)`,[reference,redirectUrl,now,publicId,reference]);
+    if (!result.affectedRows) throw new AppError(409,'PAYMENT_REFERENCE_MISMATCH','Payment reference does not match.');
+    const row = await this.#findOwnedByPublicId(publicId);
+    if (!row) throw new AppError(500,'PAYMENT_PERSISTENCE_FAILED','Payment could not be persisted.');
+    return row;
+  }
+  async markCheckoutUncertain(publicId:string,now:Date):Promise<void> {
+    await this.#pool.execute("UPDATE payments SET invoice_state='unknown',updated_at=? WHERE public_id=? AND invoice_state='creating' AND status='pending'",[now,publicId]);
+  }
+  async findByOrder(orderId:string):Promise<PaymentRecord|null> {
+    const [rows] = await this.#pool.execute<PaymentRow[]>(`SELECT ${columns} FROM payments p WHERE p.merchant_order_id=? LIMIT 1`,[orderId]);
+    return rows[0] ? payment(rows[0]) : null;
+  }
+  async claimStatusCheck(publicId:string,now:Date):Promise<boolean> {
+    const [result] = await this.#pool.execute<ResultSetHeader>(`UPDATE payments SET next_status_check_at=? WHERE public_id=?
+      AND (next_status_check_at IS NULL OR next_status_check_at<=?)`,[new Date(now.getTime()+30000),publicId,now]);
+    return result.affectedRows === 1;
+  }
+
   async findCheckoutAuthority(userPublicId: string, targetPlanCode: 'basic' | 'pro'): Promise<CheckoutAuthority | null> {
     const [rows] = await this.#pool.execute<AuthorityRow[]>(`SELECT u.id user_id,u.email,COALESCE(cc.full_name,SUBSTRING_INDEX(u.email,'@',1)) full_name,p.code,p.name,p.price_amount,p.currency,p.duration_days,COALESCE((SELECT sp.code FROM subscriptions s JOIN plans sp ON sp.id=s.plan_id WHERE s.user_id=u.id AND s.status='active' AND s.starts_at<=UTC_TIMESTAMP() AND s.ends_at>UTC_TIMESTAMP() ORDER BY s.ends_at DESC LIMIT 1),'starter') current_plan_code FROM users u JOIN cards c ON c.user_id=u.id AND c.deleted_at IS NULL AND c.status<>'deleted' LEFT JOIN card_contacts cc ON cc.card_id=c.id JOIN plans p ON p.code=? AND p.is_active=1 WHERE u.public_id=? AND u.status='active' AND u.email_verified_at IS NOT NULL LIMIT 1`, [targetPlanCode, userPublicId]);
     const row = rows[0];
     return row ? { userId: row.user_id, email: row.email, fullName: row.full_name, currentPlanCode: row.current_plan_code, targetPlan: { code: row.code, name: row.name, amount: Number(row.price_amount), currency: row.currency, durationDays: row.duration_days } } : null;
-  }
-
-  async insertPending(input: { publicId: string; merchantOrderId: string; authority: CheckoutAuthority; now: Date }): Promise<PaymentRecord> {
-    const a = input.authority;
-    await this.#pool.execute(`INSERT INTO payments(public_id,user_id,gateway,merchant_order_id,target_plan_code,plan_name_snapshot,duration_days_snapshot,amount,currency,status,created_at,updated_at) VALUES(?,?,'midtrans',?,?,?,?,?,?,'pending',?,?)`, [input.publicId, a.userId, input.merchantOrderId, a.targetPlan.code, a.targetPlan.name, a.targetPlan.durationDays, a.targetPlan.amount, a.targetPlan.currency, input.now, input.now]);
-    const result = await this.#findOwnedByPublicId(input.publicId);
-    if (!result) throw new Error('Inserted payment could not be read.');
-    return result;
-  }
-
-  async attachGatewayCheckout(publicId: string, redirectUrl: string, expiresAt: Date | null, now: Date): Promise<PaymentRecord | null> {
-    await this.#pool.execute<ResultSetHeader>(`UPDATE payments SET snap_redirect_url=?,expires_at=?,gateway_status='pending',updated_at=? WHERE public_id=? AND status='pending'`, [redirectUrl, expiresAt, now, publicId]);
-    return this.#findOwnedByPublicId(publicId);
-  }
-
-  async markCheckoutFailed(publicId: string, now: Date): Promise<void> {
-    await this.#pool.execute(`UPDATE payments SET status='failed',gateway_status='checkout_error',updated_at=? WHERE public_id=? AND status='pending'`, [now, publicId]);
   }
 
   async listOwned(userPublicId: string): Promise<PaymentRecord[]> {
@@ -53,11 +102,21 @@ export class MySqlPaymentRepository implements PaymentRepository {
       await connection.beginTransaction();
       // Serialize subscription changes across different orders for one user.
       await connection.execute(`SELECT u.id FROM users u WHERE u.id=(SELECT user_id FROM payments WHERE merchant_order_id=?) FOR UPDATE`, [notification.orderId]);
-      const [payments] = await connection.execute<CurrentPaymentRow[]>(`SELECT id,public_id,user_id,amount,status,target_plan_code,duration_days_snapshot,subscription_id FROM payments WHERE merchant_order_id=? LIMIT 1 FOR UPDATE`, [notification.orderId]);
+      const [payments] = await connection.execute<CurrentPaymentRow[]>(`SELECT p.id,p.user_id,p.subscription_id,${columns} FROM payments p WHERE p.merchant_order_id=? LIMIT 1 FOR UPDATE`, [notification.orderId]);
       const current = payments[0];
       if (!current) {
         await connection.rollback();
         return { result: 'unknown_order', paymentPublicId: null, paymentStatus: null };
+      }
+      if (current.gateway !== notification.provider || (current.gateway_environment && current.gateway_environment !== notification.environment)
+        || (current.merchant_code_snapshot && current.merchant_code_snapshot !== notification.merchantCode)) {
+        await connection.rollback(); return { result:'provider_mismatch',paymentPublicId:current.public_id,paymentStatus:current.status };
+      }
+      if (current.gateway_reference && current.gateway_reference !== notification.transactionId) {
+        await connection.rollback(); return { result:'reference_mismatch',paymentPublicId:current.public_id,paymentStatus:current.status };
+      }
+      if (notification.provider === 'duitku' && !notification.transactionId) {
+        await connection.rollback(); return { result:'reference_mismatch',paymentPublicId:current.public_id,paymentStatus:current.status };
       }
       const [events] = await connection.execute<Array<RowDataPacket & { payload_hash: string }>>(`SELECT payload_hash FROM payment_events WHERE gateway_event_key=? LIMIT 1 FOR UPDATE`, [notification.eventKey]);
       if (events[0]) {
@@ -71,10 +130,10 @@ export class MySqlPaymentRepository implements PaymentRepository {
         return { result: 'amount_mismatch', paymentPublicId: current.public_id, paymentStatus: current.status };
       }
 
-      const successful = (notification.transactionStatus === 'settlement' || (notification.transactionStatus === 'capture' && notification.fraudStatus === 'accept')) && notification.statusCode === '200';
-      const fullRefund = notification.transactionStatus === 'refund';
-      const partialRefund = notification.transactionStatus === 'partial_refund';
-      const target = successful ? 'paid' : ({ deny: 'failed', failure: 'failed', expire: 'expired', cancel: 'canceled', refund: 'refunded' } as Record<string, string>)[notification.transactionStatus] ?? null;
+      const fullRefund = notification.status === 'refunded';
+      const partialRefund = notification.status === 'partial_refund';
+      const target = notification.status === 'pending' || partialRefund ? null : notification.status;
+      if (notification.provider === 'duitku') await connection.execute('UPDATE payments SET gateway_reference=COALESCE(gateway_reference,?),invoice_state=IF(invoice_state IN (\'creating\',\'unknown\'),\'verified\',invoice_state) WHERE id=?',[notification.transactionId,current.id]);
 
       let outcome: NotificationOutcome['result'] = 'ignored';
       let paymentStatus = current.status;

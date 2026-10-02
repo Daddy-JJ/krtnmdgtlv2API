@@ -19,9 +19,28 @@ Versions are exact in `package.json` and integrity-locked in `package-lock.json`
 - `multer` provides a memory-only multipart boundary with hard request limits for Phase 4D uploads.
 - `sharp` performs actual image decode, dimension checks, and safe re-encoding; client MIME/extension is never authoritative.
 
-## Phase 5 installed
+## Phase 5 historical (superseded by ADR-009)
 
-- `midtrans-client` is isolated behind `PaymentGatewayPort`; application services and controllers do not depend on the SDK directly.
-- Phase 5A installs the adapter boundary only. No live credential, checkout route, webhook activation, or subscription mutation is enabled yet.
+- The previous provider SDK, adapter and type shim are removed. Financial history
+  is preserved; no previous-provider network processing is available.
 
 Packages remain exact-version and lockfile pinned.
+
+## Duitku transition and approved security refresh (2026-10-01)
+
+- Duitku POP uses the native fetch adapter behind the existing PaymentGatewayPort.
+  No additional subscription system or gateway SDK was introduced. Checkout remains
+  disabled by default; see docs/DUITKU-PAYMENTS.md and ADR-008 for release gates.
+- ADR-009 removes midtrans-client and its unused transitive packages, including
+  Axios. Duitku uses native fetch with explicit timeout, TLS and host validation.
+- Multer 2.4.0 and Nodemailer 10.0.13 replace vulnerable installed versions.
+  Nodemailer 10 requires Node >=20, compatible with this repo's Node 22/24 engine.
+  It provides bundled declarations; the existing @types dependency is retained
+  for compatibility and strict typecheck passes.
+- Upstream references: [Multer 2.4.0](https://github.com/expressjs/multer/releases/tag/v2.4.0),
+  [Nodemailer 10.0.13](https://github.com/nodemailer/nodemailer/releases/tag/v10.0.13).
+- npm install/update used --ignore-scripts for this scoped refresh. Only the
+  dependency tree was updated; existing Sharp processing tests also pass.
+  Deploy with npm ci from the reviewed lockfile, not unreviewed npm audit fix --force.
+- Current local QA evidence after retirement: see STATUS.md.
+  Real SMTP delivery, Node 24 hosting and Duitku sandbox/UAT remain separate gates.

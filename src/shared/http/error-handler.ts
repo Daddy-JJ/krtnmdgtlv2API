@@ -32,7 +32,7 @@ export function errorHandler(logger: Logger, debug: boolean): ErrorRequestHandle
       && typeof error === 'object'
       && (error as { status?: unknown }).status === 400
       && (error as { type?: unknown }).type === 'entity.parse.failed';
-    const tooLarge = (error as { type?: unknown } | null)?.type === 'entity.too.large';
+    const tooLarge = ['entity.too.large', 'parameters.too.many'].includes(String((error as { type?: unknown } | null)?.type));
     const status = known ? error.status : invalidJson ? 400 : tooLarge ? 413 : 500;
     const code = known ? error.code : invalidJson ? 'INVALID_JSON' : tooLarge ? 'PAYLOAD_TOO_LARGE' : 'INTERNAL_SERVER_ERROR';
     const message = known ? error.message : invalidJson ? 'Request body contains invalid JSON.' : tooLarge ? 'Request body exceeds its size limit.' : 'An unexpected error occurred.';

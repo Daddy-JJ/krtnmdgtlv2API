@@ -53,7 +53,8 @@ until the owner resolves it.
 
 Date: 2026-09-12
 
-Status: Accepted
+Status: Accepted for the account boundary; payment-provider direction superseded
+by ADR-008. Production checkout activation remains owner-gated.
 
 The owner resolves ADR-004's access-model conflict. Creating a Starter card is
 anonymous. An account is required only when the user chooses to maintain or edit
@@ -94,3 +95,56 @@ the affected entitlement, with historical ambiguous cases held for manual review
 No schema migration or production changes are part of this decision. Frontend
 and hosting coordination gates are in `SECURITY-REMEDIATION.md`. ADR-005's
 Midtrans activation restriction remains in force.
+
+## ADR-008 - Duitku POP redirect and provider-preserving transition
+
+Date: 2026-10-01
+
+Status: Approved for backend implementation; production checkout NOT approved
+
+Future checkout uses Duitku POP createInvoice and redirects to the provider page.
+This supersedes ADR-005's Midtrans readiness dependency, not its activation gate
+or the Starter account/claim boundary. Midtrans history and callback/reconcile
+processing remain provider-bound until an operator establishes a transition end.
+
+Current official documentation specifies endpoint-specific HMAC-SHA256 for Duitku.
+Browser return and unsigned callback fields cannot grant entitlement: independent
+server status, amount/order/reference matching and locked database activation are
+required. Backend prices, IDR, 365-day periods and refund rules are unchanged.
+
+Migration 013 is additive. Its down retains financial evidence; rollback disables
+new checkout while the compatible backend continues processing existing orders.
+No production migration, purchase, email or checkout activation is authorized.
+Audit findings, contracts and release blockers are in `DUITKU-PAYMENTS.md`.
+
+Implementation completion approval includes a targeted security dependency refresh:
+Multer 2.4.0, Nodemailer 10.0.13 and in-range transitive Axios 1.20.0, with lockfile
+and mail/upload/legacy-payment regressions. This does not approve production DDL,
+real purchases/email, frontend changes, checkout activation, commit or push.
+
+Follow-up owner instruction completes the LOCAL database transition after backup
+and makes Duitku the only selectable provider for new checkout. Midtrans adapters
+remain historical-processing only. Production migration/activation and actual
+sandbox validation still require deployment access and configured merchant secrets.
+
+## ADR-009 - Complete retirement of the previous payment runtime
+
+Date: 2026-10-02
+
+Status: Owner-approved implementation; checkout activation NOT approved
+
+This supersedes ADR-008's temporary retention of the Midtrans adapter/webhook.
+Remove its SDK/types/configuration, callback and SDK tests completely. Duitku is
+the only active gateway. Do not delete or relabel historic financial records,
+subscription periods, events, or existing schema columns. Old-provider records
+remain readable with redirectUrl null; reconcile fails safely with HTTP 410
+PAYMENT_PROVIDER_RETIRED and never calls Duitku. Operators must inventory and
+resolve any historic pending/refundable orders manually before release.
+
+Keep checkout and Duitku processing disabled until merchant credentials arrive
+and sandbox/UAT verifies the integration. Owner will supply sandbox merchant code
+and API key later through server configuration, not chat or the repository.
+No production migration, transaction, real email, frontend edit, commit or push.
+Rollback closes new checkout without disabling existing Duitku status/callback
+processing. Automatic provider refunds are not implemented; domain refund and
+entitlement invariants remain covered by isolated database tests.

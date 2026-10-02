@@ -14,6 +14,12 @@ health publik, admin data read-only, dan kewajiban scanner berkas CV.
 
 Operasional email reset: lihat [mail queue, cron enam menit, dan handoff cooldown frontend](docs/MAIL-QUEUE.md).
 
+Pembayaran: [audit Duitku POP, kontrak frontend, migrasi aditif dan release gates](docs/DUITKU-PAYMENTS.md).
+Checkout tetap disabled. Adapter/SDK/config/webhook Midtrans sudah dihapus;
+data historis tetap utuh, tetapi reconcile provider lama perlu review manual (410).
+Checkout baru hanya mendukung Duitku, bukan Snap/Midtrans. Migrasi 013 sudah
+diterapkan pada database lokal setelah backup; sandbox memerlukan kredensial merchant.
+
 ## Source of truth
 
 Folder project yang menjadi acuan tunggal saat ini adalah:

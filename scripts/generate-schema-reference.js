@@ -1,14 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import mysql from 'mysql2/promise';
+import { contractDatabase } from './contract-database.js';
 import { ADMIN_DATA_RESOURCES } from '../src/modules/admin-data/resources/admin-data-resources.ts';
 
 const root = resolve(import.meta.dirname, '..');
-process.loadEnvFile(resolve(root, '.env'));
-const connection = await mysql.createConnection({
-  host: process.env.DB_HOST ?? '127.0.0.1', port: Number(process.env.DB_PORT ?? 3306),
-  user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD ?? '', database: process.env.DB_DATABASE,
-});
+const connection = await mysql.createConnection(contractDatabase(root));
 
 try {
   const [tableRows] = await connection.query(`SELECT TABLE_NAME AS tableName

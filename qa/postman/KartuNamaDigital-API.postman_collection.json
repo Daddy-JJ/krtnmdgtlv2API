@@ -374,46 +374,173 @@
       "name": "Phase 5B-5C - Payment Lifecycle",
       "item": [
         {
+          "name": "Get Payment Capabilities",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/payments/capabilities"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const d = pm.response.json().data; pm.environment.set('checkoutEnabled', String(d.checkoutEnabled)); pm.environment.set('paymentEnvironment', d.environment); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Create Basic Checkout",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{checkoutIdempotencyKey}}"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"planCode\": \"basic\"\n}" },
-            "url": "{{baseUrl}}/payments/checkout"
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planCode\": \"basic\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/checkout",
+            "description": "Owner and CSRF required. Body ONLY planCode. 201 ready, 202 pending/uncertain, 503 disabled. Reuse the same key on retries; no replacement invoice after timeout."
           },
-          "event": [{ "listen": "test", "script": { "exec": [
-            "if (pm.response.code === 201) pm.environment.set('paymentPublicId', pm.response.json().data.publicId);",
-            "pm.test('Server Key is never exposed', () => pm.expect(pm.response.text()).not.to.match(/server[_-]?key/i));"
-          ] } }]
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (pm.environment.get('allowSandboxCheckout') !== 'true' || pm.environment.get('checkoutEnabled') !== 'true' || pm.environment.get('paymentEnvironment') !== 'sandbox') pm.execution.skipRequest();",
+                  "if (!pm.environment.get('checkoutIdempotencyKey')) pm.environment.set('checkoutIdempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if ([201,202].includes(pm.response.code)) { const d = pm.response.json().data; pm.environment.set('paymentPublicId', d.publicId); pm.test('neutral contract', () => { pm.expect(d.provider).to.be.eql('duitku'); pm.expect(d).not.to.have.property('snapToken'); pm.expect(d).not.to.have.property('signature'); pm.expect(d).not.to.have.property('apiKey'); }); }"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "List My Payments",
-          "request": { "method": "GET", "url": "{{baseUrl}}/payments" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/payments"
+          }
         },
         {
           "name": "Get My Payment",
-          "request": { "method": "GET", "url": "{{baseUrl}}/payments/{{paymentPublicId}}" }
-        },
-        {
-          "name": "Reject Invalid Midtrans Signature",
           "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"order_id\": \"KND_invalid\",\n  \"status_code\": \"200\",\n  \"gross_amount\": \"100000.00\",\n  \"transaction_status\": \"settlement\",\n  \"transaction_id\": \"invalid-test\",\n  \"fraud_status\": \"accept\",\n  \"signature_key\": \"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"\n}" },
-            "url": "{{baseUrl}}/payments/midtrans/webhook"
-          },
-          "event": [{ "listen": "test", "script": { "exec": [
-            "pm.test('invalid signature is rejected', () => pm.expect([400, 503]).to.include(pm.response.code));"
-          ] } }]
+            "method": "GET",
+            "url": "{{baseUrl}}/payments/{{paymentPublicId}}"
+          }
         },
         {
           "name": "Get Current Subscription",
-          "request": { "method": "GET", "url": "{{baseUrl}}/subscriptions/current" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/subscriptions/current"
+          }
+        },
+        {
+          "name": "Reconcile My Payment (manual >=30s)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/payments/{{paymentPublicId}}/reconcile",
+            "description": "Owner only; status is independently verified. Do not run on production in this handover."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (pm.environment.get('allowSandboxCheckout') !== 'true' || pm.environment.get('paymentEnvironment') !== 'sandbox') pm.execution.skipRequest();"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Invalid Duitku Callback (no secret)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "merchantCode",
+                  "value": "INVALID",
+                  "type": "text"
+                },
+                {
+                  "key": "merchantOrderId",
+                  "value": "KND_unknown_test",
+                  "type": "text"
+                },
+                {
+                  "key": "amount",
+                  "value": "55000",
+                  "type": "text"
+                },
+                {
+                  "key": "reference",
+                  "value": "invalid_test",
+                  "type": "text"
+                },
+                {
+                  "key": "resultCode",
+                  "value": "00",
+                  "type": "text"
+                },
+                {
+                  "key": "signature",
+                  "value": "0000000000000000000000000000000000000000000000000000000000000000",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/payments/duitku/callback",
+            "description": "Deliberately invalid callback cannot activate a subscription. Real callbacks originate at Duitku, not frontend."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('invalid callback rejected', () => pm.expect([400,503]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
         }
-      ]
+      ],
+      "description": "Duitku POP redirect; checkout defaults disabled. Only an owner-authorized sandbox target may enable tests. Never store merchant API keys here. See docs/DUITKU-PAYMENTS.md."
     },
     {
       "name": "Phase 8J - Destructive Cleanup",

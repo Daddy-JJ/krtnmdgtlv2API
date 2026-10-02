@@ -1,1 +1,15 @@
-import{Router}from'express';import type{PaymentController}from'../controllers/payment-controller.ts';export function createPaymentRouter(controller:PaymentController):Router{const router=Router();router.post('/checkout',controller.checkout);router.post('/midtrans/webhook',controller.notification);router.get('/',controller.list);router.post('/:publicId/reconcile',controller.reconcile);router.get('/:publicId',controller.get);return router;}export function createSubscriptionRouter(controller:PaymentController):Router{const router=Router();router.get('/current',controller.subscription);return router;}
+import { Router } from 'express';
+import type { PaymentController } from '../controllers/payment-controller.ts';
+export function createPaymentRouter(controller:PaymentController):Router {
+  const router=Router();
+  router.post('/checkout',controller.checkout);
+  router.post('/duitku/callback',controller.duitkuCallback);
+  router.get('/capabilities',controller.capabilities);
+  router.get('/',controller.list);
+  router.post('/:publicId/reconcile',controller.reconcile);
+  router.get('/:publicId',controller.get);
+  return router;
+}
+export function createSubscriptionRouter(controller:PaymentController):Router {
+  const router=Router();router.get('/current',controller.subscription);return router;
+}

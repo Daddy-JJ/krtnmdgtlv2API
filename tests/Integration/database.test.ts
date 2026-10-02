@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, randomUUID } from 'node:crypto';
 import { verifyResumeRoleMerge } from './resume-role-merge.ts';
 import { verifyMailQueue } from './mail-queue.ts';
+import { verifyDuitkuPayments } from './duitku-payments.ts';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -33,6 +34,9 @@ import { MySqlCardContentRepository } from '../../src/modules/card-content/repos
 import { CardContentService } from '../../src/modules/card-content/services/card-content-service.ts';
 import { MySqlPaymentRepository } from '../../src/modules/payments/repositories/mysql-payment-repository.ts';
 import { PaymentService } from '../../src/modules/payments/services/payment-service.ts';
+import { priceCheckout } from '../../src/modules/payments/services/payment-policy.ts';
+import { AppError } from '../../src/shared/http/errors.ts';
+import type { VerifiedGatewayNotification } from '../../src/modules/payments/gateways/payment-gateway-port.ts';
 import type { PaymentGatewayPort } from '../../src/modules/payments/gateways/payment-gateway-port.ts';
 import { MySqlAdminRepository } from '../../src/modules/admin/repositories/mysql-admin-repository.ts';
 import { MySqlSuperAdminRepository } from '../../src/modules/admin/repositories/mysql-super-admin-repository.ts';
@@ -90,6 +94,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '010_email_templates.sql',
       '011_whatsapp_pro_entitlement.sql',
       '012_whatsapp_all_tiers.sql',
+      '013_payment_provider_transition.sql',
     ]);
     assert.deepEqual(await migrations.migrate(), []);
     await verifyResumeRoleMerge(pool);
@@ -323,44 +328,56 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     await pool.execute(`UPDATE plans SET price_amount=100000,duration_days=365 WHERE code='basic'`);
     await pool.execute(`UPDATE plans SET price_amount=200000,duration_days=365 WHERE code='pro'`);
     const paymentRepository = new MySqlPaymentRepository(pool);
-    const paymentGateway = { createCheckout: async (input: { orderId: string }) => ({ token: `token-${input.orderId}`, redirectUrl: `https://sandbox.midtrans.com/${input.orderId}` }) } as unknown as PaymentGatewayPort;
-    const payments = new PaymentService({ repository: paymentRepository, gateway: paymentGateway, callbacks: { finish: 'https://kartunamadigital.id/app/billing/result', unfinish: 'https://kartunamadigital.id/app/billing/result', error: 'https://kartunamadigital.id/app/billing/result' } });
-    const checkout = await payments.checkout(claimSession.user.publicId, { planCode: 'basic' });
+    const paymentLimits = new MySqlRateLimiter(pool);
+    const paymentGateway = { provider:'duitku',environment:'sandbox',merchantCode:'TEST1',
+      createCheckout:async (input:{orderId:string})=>({reference:`REF_${input.orderId}`,redirectUrl:`https://app-sandbox.duitku.com/redirect_checkout?reference=REF_${input.orderId}`}),
+    } as unknown as PaymentGatewayPort;
+    const payments = new PaymentService({repository:paymentRepository,gateways:[paymentGateway],rateLimiter:paymentLimits,checkoutEnabled:true});
+    const checkout = await payments.checkout(claimSession.user.publicId,{planCode:'basic'},randomUUID());
     assert.equal(checkout.amount, 55000);
     assert.equal(checkout.durationDays, 365);
-    assert.match(checkout.snapToken, /^token-KND_/);
+    assert.equal(checkout.provider, 'duitku');
+    assert.equal('snapToken' in checkout, false);
     assert.equal((await payments.list(claimSession.user.publicId)).length, 1);
     assert.equal((await payments.get(claimSession.user.publicId, checkout.publicId)).publicId, checkout.publicId);
     await assert.rejects(() => payments.get(paidUser.public_id, checkout.publicId), { code: 'PAYMENT_NOT_FOUND' });
     await pool.execute(`UPDATE plans SET price_amount=200000,duration_days=365 WHERE code='basic'`);
     assert.equal((await payments.get(claimSession.user.publicId, checkout.publicId)).amount, 55000);
-    const notificationGateway = { verifyNotification: async (payload: unknown) => payload } as unknown as PaymentGatewayPort;
-    const notifications = new PaymentService({ repository: paymentRepository, gateway: notificationGateway, callbacks: { finish: '', unfinish: '', error: '' } });
-    const settlement = { orderId: checkout.merchantOrderId, statusCode: '200', grossAmount: '55000.00', transactionStatus: 'settlement', transactionId: 'midtrans-trx-1', fraudStatus: 'accept', eventKey: 'event-settlement-1', raw: { order_id: checkout.merchantOrderId, transaction_status: 'settlement' } };
+    // Domain-only verified evidence fixtures test financial/refund integrity.
+    // Actual callback cryptography and S2S verification are tested separately;
+    // no provider refund API or user-facing refund mutation is simulated here.
+    const notifications = {notification:async (payload:unknown)=>{
+      const value=payload as VerifiedGatewayNotification;
+      const outcome=await paymentRepository.applyVerifiedNotification({...value,provider:'duitku',environment:'sandbox',merchantCode:'TEST1'},createHash('sha256').update(JSON.stringify(value)).digest('hex'),new Date());
+      if(outcome.result==='amount_mismatch')throw new AppError(400,'PAYMENT_AMOUNT_MISMATCH','Payment amount does not match.');
+      return outcome;
+    }};
+    const settlement = { orderId: checkout.merchantOrderId, statusCode: '00', status:'paid',grossAmount: '55000.00', transactionStatus: 'paid', transactionId: `REF_${checkout.merchantOrderId}`, fraudStatus:null, eventKey: 'event-settlement-1', raw: { status:'paid' } };
     assert.equal((await notifications.notification(settlement)).result, 'processed');
     assert.equal((await notifications.notification(settlement)).result, 'duplicate');
     assert.equal((await payments.get(claimSession.user.publicId, checkout.publicId)).status, 'paid');
     const [activated] = await pool.execute<Array<RowDataPacket & { plan_code: string; card_plan: string; ends_at: Date; events: number }>>(`SELECT p.code plan_code,c.plan_code card_plan,s.ends_at,(SELECT COUNT(*) FROM payment_events WHERE payment_id=pay.id) events FROM payments pay JOIN subscriptions s ON s.id=pay.subscription_id JOIN plans p ON p.id=s.plan_id JOIN cards c ON c.user_id=pay.user_id WHERE pay.public_id=? LIMIT 1`, [checkout.publicId]);
-    assert.equal(activated[0]?.plan_code, 'basic'); assert.equal(activated[0]?.card_plan, 'basic'); assert.equal(Number(activated[0]?.events), 1);
+    assert.equal(activated[0]?.plan_code, 'basic'); assert.equal(activated[0]?.card_plan, 'basic'); assert.equal(Number(activated[0]?.events), 2);
     assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'basic');
-    const mismatched = await payments.checkout(claimSession.user.publicId, { planCode: 'pro' });
-    const mismatchNotice = { ...settlement, orderId: mismatched.merchantOrderId, grossAmount: '1.00', transactionId: 'midtrans-trx-2', eventKey: 'event-mismatch-2', raw: { order_id: mismatched.merchantOrderId, transaction_status: 'settlement', gross_amount: '1.00' } };
+    const mismatched = await payments.checkout(claimSession.user.publicId,{planCode:'pro'},randomUUID());
+    const mismatchNotice = { ...settlement, orderId: mismatched.merchantOrderId, grossAmount: '1.00', transactionId:`REF_${mismatched.merchantOrderId}`, eventKey: 'event-mismatch-2', raw: { status:'paid',amount:'1.00' } };
     await assert.rejects(() => notifications.notification(mismatchNotice), { code: 'PAYMENT_AMOUNT_MISMATCH' });
     assert.equal((await payments.get(claimSession.user.publicId, mismatched.publicId)).status, 'pending');
     const [rejectedEvents] = await pool.execute<Array<RowDataPacket & { count: number }>>(`SELECT COUNT(*) count FROM payment_events WHERE payment_id=(SELECT id FROM payments WHERE public_id=?) AND processing_status='rejected'`, [mismatched.publicId]);
     assert.equal(Number(rejectedEvents[0]?.count), 1);
-    const upgrade = await payments.checkout(claimSession.user.publicId, { planCode: 'pro' });
+    const upgrade = await payments.checkout(claimSession.user.publicId,{planCode:'pro'},randomUUID());
+    assert.equal(upgrade.publicId,mismatched.publicId);
     assert.equal(upgrade.amount, 55000);
-    const upgradeNotice = { ...settlement, orderId: upgrade.merchantOrderId, grossAmount: '55000.00', transactionId: 'midtrans-trx-3', eventKey: 'event-settlement-3', raw: { order_id: upgrade.merchantOrderId, transaction_status: 'settlement' } };
+    const upgradeNotice = { ...settlement, orderId: upgrade.merchantOrderId, grossAmount: '55000.00', transactionId:`REF_${upgrade.merchantOrderId}`, eventKey: 'event-settlement-3', raw: { status:'paid' } };
     assert.equal((await notifications.notification(upgradeNotice)).result, 'processed');
     const [upgraded] = await pool.execute<Array<RowDataPacket & { plan_code: string; card_plan: string; ends_at: Date }>>(`SELECT p.code plan_code,c.plan_code card_plan,s.ends_at FROM payments pay JOIN subscriptions s ON s.id=pay.subscription_id JOIN plans p ON p.id=s.plan_id JOIN cards c ON c.user_id=pay.user_id WHERE pay.public_id=? LIMIT 1`, [upgrade.publicId]);
     assert.equal(upgraded[0]?.plan_code, 'pro'); assert.equal(upgraded[0]?.card_plan, 'pro');
     assert.ok((upgraded[0]?.ends_at.getTime() ?? 0) >= (activated[0]?.ends_at.getTime() ?? 0) - 1000);
     assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'pro');
-    await assert.rejects(() => payments.checkout(claimSession.user.publicId, { planCode: 'pro' }), { code: 'PLAN_UPGRADE_NOT_AVAILABLE' });
+    await assert.rejects(async () => priceCheckout((await paymentRepository.findCheckoutAuthority(claimSession.user.publicId,'pro'))!), { code: 'PLAN_UPGRADE_NOT_AVAILABLE' });
     await pool.execute(`UPDATE users SET role='admin' WHERE public_id=?`, [claimSession.user.publicId]);
     const admin = new AdminService(new MySqlAdminRepository(pool));
-    assert.equal((await admin.listPayments()).length, 3);
+    assert.equal((await admin.listPayments()).length, 2);
     const updatedPlan = await admin.updatePlan(claimSession.user.publicId, 'pro', { price: 300000, durationDays: 365, isActive: true, reason: 'Approved annual Pro pricing for integration test' });
     assert.equal(updatedPlan.price, 300000);
     assert.ok((await admin.listUsers()).length >= 2); assert.ok((await admin.listCards()).length >= 2); assert.equal((await admin.listThemes()).length, 10);
@@ -400,11 +417,11 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.ok(Object.hasOwn(await superAdmin.security(), 'summary'));
 
     // Verified notifications only, fake gateway, exclusively in the isolated database.
-    const partialRefund = { ...upgradeNotice, transactionStatus: 'partial_refund', eventKey: 'partial-refund', raw: { event: 'partial-refund' } };
+    const partialRefund = { ...upgradeNotice, status:'partial_refund',transactionStatus: 'partial_refund', eventKey: 'partial-refund', raw: { event: 'partial-refund' } };
     assert.equal((await notifications.notification(partialRefund)).result, 'processed');
     assert.equal((await payments.get(claimSession.user.publicId, upgrade.publicId)).status, 'paid');
     assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'pro');
-    const refund = { ...upgradeNotice, transactionStatus: 'refund', eventKey: 'full-refund', raw: { event: 'full-refund' } };
+    const refund = { ...upgradeNotice, status:'refunded',transactionStatus: 'refund', eventKey: 'full-refund', raw: { event: 'full-refund' } };
     assert.equal((await notifications.notification(refund)).result, 'processed');
     assert.equal((await payments.get(claimSession.user.publicId, upgrade.publicId)).status, 'refunded');
     assert.equal((await payments.currentSubscription(claimSession.user.publicId))?.planCode, 'basic');
@@ -416,17 +433,20 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
 
     const beforeRenewal = (await payments.currentSubscription(claimSession.user.publicId))!;
     const authority = (await paymentRepository.findCheckoutAuthority(claimSession.user.publicId, 'basic'))!;
-    const renewal = await paymentRepository.insertPending({ publicId: randomUUID(), merchantOrderId: 'integration-renewal', authority, now: new Date() });
-    const renewalNotice = { ...settlement, orderId: renewal.merchantOrderId, grossAmount: renewal.amount.toFixed(2), eventKey: 'renewal-paid', raw: { event: 'renewal-paid' } };
+    // A historical renewal is a test-only SQL fixture, not a new checkout path.
+    const renewalId=randomUUID(),renewalOrder='integration-renewal';
+    await pool.execute(`INSERT INTO payments(public_id,user_id,gateway,gateway_environment,merchant_code_snapshot,merchant_order_id,target_plan_code,plan_name_snapshot,duration_days_snapshot,amount,currency,status,gateway_reference,invoice_state,created_at,updated_at) VALUES(?,?,'duitku','sandbox','TEST1',?,?,?,?,?,?,'pending',?,'ready',UTC_TIMESTAMP(),UTC_TIMESTAMP())`,[renewalId,authority.userId,renewalOrder,authority.targetPlan.code,authority.targetPlan.name,authority.targetPlan.durationDays,authority.targetPlan.amount,authority.targetPlan.currency,`REF_${renewalOrder}`]);
+    const renewal=(await paymentRepository.findOwned(claimSession.user.publicId,renewalId))!;
+    const renewalNotice = { ...settlement, orderId: renewal.merchantOrderId,transactionId:`REF_${renewalOrder}`, grossAmount: renewal.amount.toFixed(2), eventKey: 'renewal-paid', raw: { event: 'renewal-paid' } };
     await notifications.notification(renewalNotice);
     assert.ok((await payments.currentSubscription(claimSession.user.publicId))!.endsAt > beforeRenewal.endsAt);
-    await notifications.notification({ ...renewalNotice, transactionStatus: 'refund', eventKey: 'renewal-refund', raw: { event: 'renewal-refund' } });
+    await notifications.notification({ ...renewalNotice, status:'refunded',transactionStatus: 'refund', eventKey: 'renewal-refund', raw: { event: 'renewal-refund' } });
     assert.equal((await payments.currentSubscription(claimSession.user.publicId))!.endsAt.getTime(), beforeRenewal.endsAt.getTime());
 
     // Historical rows without payment-period attribution require manual review,
     // and may not retain an active entitlement after a verified full refund.
     await pool.execute('UPDATE subscription_periods SET source_payment_id=NULL WHERE source_payment_id=(SELECT id FROM payments WHERE public_id=?)', [checkout.publicId]);
-    await notifications.notification({ ...settlement, transactionStatus: 'refund', eventKey: 'legacy-refund', raw: { event: 'legacy-refund' } });
+    await notifications.notification({ ...settlement, status:'refunded',transactionStatus: 'refund', eventKey: 'legacy-refund', raw: { event: 'legacy-refund' } });
     assert.equal((await payments.get(claimSession.user.publicId, checkout.publicId)).status, 'refund_pending_review');
     assert.equal(await payments.currentSubscription(claimSession.user.publicId), null);
     const [refundedCard] = await pool.execute<Array<RowDataPacket & { plan_code: string }>>('SELECT c.plan_code FROM cards c JOIN users u ON u.id=c.user_id WHERE u.public_id=? AND c.deleted_at IS NULL', [claimSession.user.publicId]);
@@ -469,6 +489,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     }
 
     assert.deepEqual(await migrations.rollbackLastBatch(), [
+      '013_payment_provider_transition.sql',
       '012_whatsapp_all_tiers.sql',
       '011_whatsapp_pro_entitlement.sql',
       '010_email_templates.sql',
@@ -499,8 +520,12 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '010_email_templates.sql',
       '011_whatsapp_pro_entitlement.sql',
       '012_whatsapp_all_tiers.sql',
+      '013_payment_provider_transition.sql',
     ]);
     assert.equal((await seeds.run()).length, 2);
+    // All transitions, including provider-neutral fields, are present after reapply.
+    assert.equal((await migrations.status())['013_payment_provider_transition.sql'],true);
+    await t.test('Duitku durable checkout, callbacks, ownership and exactly-once periods', () => verifyDuitkuPayments(pool));
     await t.test('mail queue concurrency, admin retry, worker lock and reset token lifecycle', () => verifyMailQueue(pool));
   } finally {
     await pool.end();

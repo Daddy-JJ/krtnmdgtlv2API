@@ -65,7 +65,7 @@ import { MySqlPaymentRepository } from './modules/payments/repositories/mysql-pa
 import { PaymentService } from './modules/payments/services/payment-service.ts';
 import { PaymentController } from './modules/payments/controllers/payment-controller.ts';
 import { createPaymentRouter, createSubscriptionRouter } from './modules/payments/routes/payment-router.ts';
-import { MidtransGateway } from './modules/payments/gateways/midtrans-gateway.ts';
+import { createPaymentGateways } from './modules/payments/gateways/payment-gateways.ts';
 import { MySqlAdminRepository } from './modules/admin/repositories/mysql-admin-repository.ts';
 import { AdminService } from './modules/admin/services/admin-service.ts';
 import { AdminController } from './modules/admin/controllers/admin-controller.ts';
@@ -182,8 +182,8 @@ const themeRouter=Router();themeRouter.get('/',customizationController.catalog);
 const cardService=new CardService({ repository: cardRepository, appUrl: environment.APP_URL, requireHttpsUrls: environment.APP_ENV === 'production',capabilities,content:contentRepository });
 const cardController=new CardController(cardService,actors);
 const logoController=new LogoController(new LogoService({cards:cardRepository,capabilities,processor:new LogoImageProcessor(),storage:new LogoFileStorage(resolve(backendRoot,'storage/public/uploads/logos'))}),actors);
-const paymentGateway=environment.MIDTRANS_ENABLED?new MidtransGateway({environment:environment.MIDTRANS_ENV,serverKey:environment.MIDTRANS_SERVER_KEY,clientKey:environment.MIDTRANS_CLIENT_KEY}):undefined;
-const paymentController=new PaymentController(new PaymentService({repository:new MySqlPaymentRepository(pool),...(paymentGateway?{gateway:paymentGateway}:{}),callbacks:{finish:environment.MIDTRANS_FINISH_URL??`${environment.APP_URL}/app/billing/result`,unfinish:environment.MIDTRANS_UNFINISH_URL??`${environment.APP_URL}/app/billing/result`,error:environment.MIDTRANS_ERROR_URL??`${environment.APP_URL}/app/billing/result`}}),actors);
+const paymentController=new PaymentController(new PaymentService({repository:new MySqlPaymentRepository(pool),gateways:createPaymentGateways(environment),provider:environment.PAYMENT_PROVIDER,
+  environment:environment.DUITKU_ENV,checkoutEnabled:environment.PAYMENT_CHECKOUT_ENABLED,expiryMinutes:environment.DUITKU_EXPIRY_MINUTES,rateLimiter}),actors);
 const app = createApp({
   databaseHealth: new DatabaseHealthCheck(pool),
   environment: environment.APP_ENV,

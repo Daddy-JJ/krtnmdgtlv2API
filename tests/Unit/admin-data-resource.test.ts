@@ -20,7 +20,7 @@ test('admin data allowlist contains every non-internal database table exactly on
 });
 
 test('credential and token material is classified as sensitive', () => {
-  for (const column of ['password_hash', 'token_hash', 'code_hash', 'actor_ip_hash', 'sha256']) {
+  for (const column of ['password_hash', 'token_hash', 'code_hash', 'actor_ip_hash', 'sha256', 'gateway_reference', 'gateway_redirect_url']) {
     assert.equal(isSensitiveAdminDataColumn(column), true, column);
   }
   for (const column of ['public_id', 'email', 'created_at']) {

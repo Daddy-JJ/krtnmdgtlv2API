@@ -83,12 +83,16 @@ export function createApp(dependencies: AppDependencies): Express {
     next();
   });
 
+  app.use('/api/v1/payments/duitku/callback', (request,_response,next) => {
+    if (request.method === 'POST' && !request.is('application/x-www-form-urlencoded')) return next(new AppError(415,'PAYMENT_CALLBACK_ENCODING_INVALID','Payment callback must be form encoded.'));
+    next();
+  }, express.urlencoded({ extended:false,limit:'16kb',parameterLimit:40 }));
   app.use(express.json({ limit: '256kb', strict: true }));
   // Run once, before routers and multipart parsers. Public auth/Starter flows
   // and the signed payment webhook never depend on an unrelated browser cookie.
   app.use('/api/v1', (request, response, next) => {
     const path = request.path.toLowerCase().replace(/\/+$/, '');
-    if (path === '/payments/midtrans/webhook') return next();
+    if (path === '/payments/duitku/callback') return next();
     const privatePath = /^\/(me|cards|themes|payments|subscriptions|admin|resume-service|resume-requests|feedback)(\/|$)/.test(path)
       || path === '/auth/csrf' || path === '/auth/logout'
       || /^\/starter\/cards\/[^/]+\/claim$/.test(path);
