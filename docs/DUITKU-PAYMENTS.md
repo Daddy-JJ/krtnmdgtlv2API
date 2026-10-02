@@ -156,6 +156,22 @@ There is no automated retry worker/durable retry scheduler in this phase.
 
 ## Configuration and migration
 
+Merchant onboarding callback for this website:
+`https://api.kartunamadigital.id/api/v1/payments/duitku/callback`.
+Register it as the backend callback/notification URL, not the browser return URL.
+The source route is already registered as POST with form encoding. Browser GET
+does not test callback processing; only verified notifications receive 200 OK.
+Live route availability must be checked after deploying the compatible backend.
+
+The hosting template `.env.production.example` uses this same public callback
+for both DUITKU_SANDBOX_CALLBACK_URL and DUITKU_PRODUCTION_CALLBACK_URL. Stored
+payment environment/merchant selects the correct credentials. Keep sandbox and
+production merchant keys separate and empty until supplied. Staging/local
+templates retain their separate deployment placeholders. Adding a callback URL
+does not enable processing or checkout: keep DUITKU_ENABLED=false and
+PAYMENT_CHECKOUT_ENABLED=false while onboarding. Confirm the matching frontend
+return URL separately before sandbox/UAT.
+
 ```ini
 PAYMENT_PROVIDER=duitku
 PAYMENT_CHECKOUT_ENABLED=false
@@ -238,6 +254,10 @@ fixtures; that does NOT prove an automatic Duitku refund API integration.
    409 IDEMPOTENCY_CONFLICT never retry changed payload with same key;
    CHECKOUT_PENDING_EXISTS use data.publicId to inspect prior attempt.
    429 RATE_LIMITED wait ≥30s; 503 disabled/unavailable show no new checkout.
+   Allowed credentialed origins can read Retry-After and X-Request-ID via CORS.
+   Retry-After, when present, may be seconds or an HTTP date; missing/invalid values
+   fall back to capabilities.reconcileCooldownSeconds. Header exposure itself does
+   not add Retry-After to an endpoint. Never use the cooldown as an automatic retry.
    410 PAYMENT_PROVIDER_RETIRED requires manual review of historical records.
    400 mismatch, 502 invalid response/redirect require safe support review,
    not a new order. No provider messages/key/signature in UX/logging.

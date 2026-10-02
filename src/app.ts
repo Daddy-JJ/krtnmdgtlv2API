@@ -55,13 +55,15 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(helmet());
   app.use(requestIdMiddleware);
   app.use((request, response, next) => {
+    // Allowed and rejected origins produce different CORS headers.
+    response.vary('Origin');
     const origin = request.header('origin');
     if (origin && dependencies.corsAllowedOrigins?.includes(origin)) {
       response.setHeader('Access-Control-Allow-Origin', origin);
       response.setHeader('Access-Control-Allow-Credentials', 'true');
+      response.setHeader('Access-Control-Expose-Headers', 'Retry-After, X-Request-ID');
       response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, X-Request-ID, Idempotency-Key');
       response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-      response.append('Vary', 'Origin');
     }
     if (request.method === 'OPTIONS') {
       response.status(204).end();

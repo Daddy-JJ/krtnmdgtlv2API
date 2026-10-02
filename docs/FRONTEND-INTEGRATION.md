@@ -97,6 +97,21 @@ CORS_ALLOWED_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
 Origin harus cocok pada scheme, hostname, dan port. `localhost` berbeda dengan
 `127.0.0.1`. Backend tidak menggunakan wildcard karena request membawa cookie.
 
+Origin yang diizinkan menerima credentials dan
+`Access-Control-Expose-Headers: Retry-After, X-Request-ID`, termasuk pada respons
+error 429. Browser dapat membaca header lewat `response.headers.get(...)`.
+Origin yang tidak diizinkan atau request tanpa Origin tidak menerima expose header.
+`Idempotency-Key` tetap diizinkan pada preflight. Semua respons memuat
+`Vary: Origin`, dengan nilai Vary lain tetap dipertahankan.
+
+Untuk cooldown, tangani Retry-After berupa jumlah detik maupun HTTP-date;
+nilai tanggal dihitung sebagai selisih waktu dan dibatasi minimum nol. Jika header
+hilang/tidak valid, gunakan cooldown dari capabilities (reconcile saat ini 30 detik).
+Expose header menyediakan akses browser terhadap header yang dikirim endpoint;
+middleware CORS tidak menghasilkan nilai Retry-After sendiri. Jangan retry
+checkout/reconcile otomatis. X-Request-ID dapat dicatat untuk pelacakan error
+tanpa mencatat URL pembayaran atau kredensial.
+
 ## Response contract
 
 Response sukses menggunakan envelope:

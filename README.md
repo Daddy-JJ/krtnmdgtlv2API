@@ -20,6 +20,13 @@ data historis tetap utuh, tetapi reconcile provider lama perlu review manual (41
 Checkout baru hanya mendukung Duitku, bukan Snap/Midtrans. Migrasi 013 sudah
 diterapkan pada database lokal setelah backup; sandbox memerlukan kredensial merchant.
 
+URL callback untuk didaftarkan pada merchant Duitku:
+`https://api.kartunamadigital.id/api/v1/payments/duitku/callback`.
+Endpoint menerima POST form dari Duitku; browser GET bukan pemeriksaan callback.
+Contoh environment hosting memakai URL ini untuk sandbox dan production.
+Route sudah tersedia dalam source; pemrosesan menunggu kredensial dan konfigurasi
+Duitku, sedangkan checkout tetap disabled sampai sandbox/UAT disetujui.
+
 ## Source of truth
 
 Folder project yang menjadi acuan tunggal saat ini adalah:
