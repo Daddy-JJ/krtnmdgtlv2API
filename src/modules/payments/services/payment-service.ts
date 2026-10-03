@@ -20,16 +20,19 @@ export class PaymentService {
   readonly #enabled:boolean;
   readonly #expiryMinutes:number;
   readonly #rateLimiter:RateLimiter|undefined;
-  constructor(deps:{repository:PaymentRepository;gateways?:readonly PaymentGatewayPort[];provider?:PaymentProvider;environment?:GatewayEnvironment;checkoutEnabled?:boolean;expiryMinutes?:number;rateLimiter?:RateLimiter}) {
+  readonly #sandboxUsers:ReadonlySet<string>;
+  constructor(deps:{repository:PaymentRepository;gateways?:readonly PaymentGatewayPort[];provider?:PaymentProvider;environment?:GatewayEnvironment;checkoutEnabled?:boolean;expiryMinutes?:number;rateLimiter?:RateLimiter;sandboxAllowedUserPublicIds?:readonly string[]}) {
     this.#repository=deps.repository;this.#gateways=deps.gateways??[];this.#provider=deps.provider??'duitku';this.#environment=deps.environment??'sandbox';
     if (this.#provider !== 'duitku') throw new AppError(500,'PAYMENT_CONFIG_INVALID','Payment configuration is invalid.');
     this.#enabled=deps.checkoutEnabled??false;this.#expiryMinutes=deps.expiryMinutes??60;this.#rateLimiter=deps.rateLimiter;
+    this.#sandboxUsers=new Set(deps.sandboxAllowedUserPublicIds??[]);
   }
-  capabilities() {
-    return { checkoutEnabled:this.#enabled && this.#gateways.some(g=>g.provider===this.#provider&&g.environment===this.#environment),provider:this.#provider,environment:this.#environment,idempotencyKeyRequired:true,reconcileCooldownSeconds:30 };
+  capabilities(userPublicId?:string) {
+    return { checkoutEnabled:this.#enabled && (this.#environment!=='sandbox' || this.#sandboxUsers.has(userPublicId??'')) && this.#gateways.some(g=>g.provider===this.#provider&&g.environment===this.#environment),provider:this.#provider,environment:this.#environment,idempotencyKeyRequired:true,reconcileCooldownSeconds:30 };
   }
   async checkout(userPublicId:string,input:CheckoutInput,idempotencyKey:string):Promise<CheckoutResponse> {
     if (!this.#enabled) throw new AppError(503,'PAYMENT_CHECKOUT_DISABLED','Payment checkout is currently disabled.');
+    if (this.#environment==='sandbox' && !this.#sandboxUsers.has(userPublicId)) throw new AppError(403,'PAYMENT_SANDBOX_FORBIDDEN','Sandbox checkout is restricted to approved test accounts.');
     const gateway=this.#gateways.find(g=>g.provider===this.#provider&&g.environment===this.#environment);
     if (!gateway) throw new AppError(503,'PAYMENT_GATEWAY_UNAVAILABLE','Payment gateway is unavailable.');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) throw new AppError(422,'VALIDATION_ERROR','A UUID Idempotency-Key is required.');

@@ -1,6 +1,7 @@
 # Backend SOT Manifest
 
 Updated: 2026-10-02
+Shared-database sandbox restriction: 2026-10-03, ADR-010.
 
 ## Scope and authority
 

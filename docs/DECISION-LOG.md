@@ -1,5 +1,13 @@
 # Backend Decision Log
 
+## ADR-010: Restricted shared-database sandbox (2026-10-03)
+
+Owner accepts shared database. Restrict new sandbox checkout to configured dummy
+user UUIDs, personalize capabilities, separate production paid gross revenue from
+sandbox/unknown/history totals. Sandbox still changes dummy subscriptions/cards;
+no isolation claim. Existing callbacks/reconcile continue after membership changes.
+No cleanup/migration, checkout activation, production transaction or deployment.
+
 ## ADR-001 - Node.js and Express are the official backend
 
 Date: 2026-09-11

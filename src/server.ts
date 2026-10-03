@@ -183,7 +183,8 @@ const cardService=new CardService({ repository: cardRepository, appUrl: environm
 const cardController=new CardController(cardService,actors);
 const logoController=new LogoController(new LogoService({cards:cardRepository,capabilities,processor:new LogoImageProcessor(),storage:new LogoFileStorage(resolve(backendRoot,'storage/public/uploads/logos'))}),actors);
 const paymentController=new PaymentController(new PaymentService({repository:new MySqlPaymentRepository(pool),gateways:createPaymentGateways(environment),provider:environment.PAYMENT_PROVIDER,
-  environment:environment.DUITKU_ENV,checkoutEnabled:environment.PAYMENT_CHECKOUT_ENABLED,expiryMinutes:environment.DUITKU_EXPIRY_MINUTES,rateLimiter}),actors);
+  environment:environment.DUITKU_ENV,checkoutEnabled:environment.PAYMENT_CHECKOUT_ENABLED,expiryMinutes:environment.DUITKU_EXPIRY_MINUTES,rateLimiter,
+  sandboxAllowedUserPublicIds:environment.DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS.split(',').map(id=>id.trim()).filter(Boolean)}),actors);
 const app = createApp({
   databaseHealth: new DatabaseHealthCheck(pool),
   environment: environment.APP_ENV,

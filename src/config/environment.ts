@@ -46,6 +46,7 @@ const environmentSchema = z.object({
   OTP_SEND_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(20).default(5),
   PAYMENT_PROVIDER: z.literal('duitku').default('duitku'),
   PAYMENT_CHECKOUT_ENABLED: booleanValue.default(false),
+  DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS: z.string().max(4000).default(''),
   DUITKU_ENABLED: booleanValue.default(false),
   DUITKU_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
   DUITKU_SANDBOX_MERCHANT_CODE: z.string().default(''),
@@ -71,6 +72,11 @@ const environmentSchema = z.object({
   EMAIL_TEMPLATES_ENABLED: booleanValue.default(false),
 }).superRefine((value, context) => {
   const invalid = (field: string) => context.addIssue({ code:'custom', path:[field], message:'Payment configuration is invalid.' });
+  const sandboxUsers = value.DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS.split(',').map(id => id.trim()).filter(Boolean);
+  if (sandboxUsers.some(id => !z.uuid().safeParse(id).success) || sandboxUsers.length > 100
+    || (value.PAYMENT_CHECKOUT_ENABLED && value.DUITKU_ENV === 'sandbox' && !sandboxUsers.length)) {
+    invalid('DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS');
+  }
   if (value.PAYMENT_CHECKOUT_ENABLED && !value.DUITKU_ENABLED) invalid('PAYMENT_CHECKOUT_ENABLED');
   for (const mode of ['SANDBOX','PRODUCTION'] as const) {
     const code = value[`DUITKU_${mode}_MERCHANT_CODE`], key = value[`DUITKU_${mode}_API_KEY`];

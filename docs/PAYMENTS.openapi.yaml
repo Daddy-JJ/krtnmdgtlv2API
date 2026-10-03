@@ -25,7 +25,7 @@
       "get": {
         "responses": {
           "200": {
-            "description": "Authenticated feature/config status; not eligibility.",
+            "description": "Authenticated status; sandbox checkoutEnabled reflects current-user allowlist membership, not plan eligibility.",
             "content": {
               "application/json": {
                 "schema": {

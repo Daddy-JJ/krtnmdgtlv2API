@@ -27,7 +27,7 @@ function fixture(){
     applyVerifiedNotification:async(value:GatewayTransactionStatus)=>{applied++;stored={...stored,status:value.status,reference:value.transactionId};return{result:'processed',paymentPublicId:stored.publicId,paymentStatus:stored.status};},
   }as unknown as PaymentRepository;
   const rateLimiter={consume:async()=>allowed}as RateLimiter;
-  const service=new PaymentService({repository,gateways:[gateway],checkoutEnabled:true,rateLimiter});
+  const service=new PaymentService({repository,gateways:[gateway],checkoutEnabled:true,rateLimiter,sandboxAllowedUserPublicIds:['user']});
   return{service,repository,gateway,rateLimiter,evidence,get stored(){return stored;},set stored(v:PaymentRecord){stored=v;},get creates(){return creates;},get statusCalls(){return statusCalls;},get applied(){return applied;},deny:()=>{allowed=false;},throttle:()=>{claimed=false;}};
 }
 test('disabled checkout writes nothing even with configured processing gateway',async()=>{
@@ -42,6 +42,27 @@ test('unsupported checkout provider fails closed before reserving or creating an
   const f=fixture();
   assert.throws(()=>new PaymentService({repository:f.repository,gateways:[f.gateway],provider:'retired-provider' as never,checkoutEnabled:true,rateLimiter:f.rateLimiter}),{code:'PAYMENT_CONFIG_INVALID'});
   assert.equal(f.creates,0);
+});
+test('sandbox requires exact authenticated allowlist membership before any reservation or gateway call',async()=>{
+  const f=fixture();let reservations=0;
+  f.repository.reserveCheckout=async()=>{reservations++;throw new Error('must not reserve');};
+  for(const sandboxAllowedUserPublicIds of [[],['user-other']]) {
+    const service=new PaymentService({repository:f.repository,gateways:[f.gateway],checkoutEnabled:true,rateLimiter:f.rateLimiter,sandboxAllowedUserPublicIds});
+    assert.equal(service.capabilities('user').checkoutEnabled,false);
+    assert.equal(service.capabilities().checkoutEnabled,false);
+    await assert.rejects(service.checkout('user',{planCode:'basic'},randomUUID()),{status:403,code:'PAYMENT_SANDBOX_FORBIDDEN'});
+  }
+  assert.equal(reservations,0);assert.equal(f.creates,0);
+  assert.equal(f.service.capabilities('user').checkoutEnabled,true);
+  assert.equal(f.service.capabilities('other').checkoutEnabled,false);
+  assert.equal('sandboxAllowedUserPublicIds' in f.service.capabilities('user'),false);
+});
+test('production checkout is not governed by sandbox allowlist',async()=>{
+  const f=fixture();const gateway:PaymentGatewayPort={...f.gateway,environment:'production',
+    createCheckout:async()=>({reference:'REF',redirectUrl:'https://app-prod.duitku.com/redirect_checkout?reference=REF'})};
+  const service=new PaymentService({repository:f.repository,gateways:[gateway],environment:'production',checkoutEnabled:true,rateLimiter:f.rateLimiter});
+  assert.equal(service.capabilities('user').checkoutEnabled,true);
+  assert.ok((await service.checkout('user',{planCode:'basic'},randomUUID())).redirectUrl);
 });
 test('checkout returns neutral authoritative fields and hides reference/merchant/token',async()=>{
   const f=fixture(),response=await f.service.checkout('user',{planCode:'basic'},randomUUID());

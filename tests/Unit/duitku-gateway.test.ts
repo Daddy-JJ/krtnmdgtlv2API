@@ -90,6 +90,14 @@ test('gateway registry retains processing with checkout disabled and separates b
   assert.deepEqual(createPaymentGateways(env).map(g=>[g.environment,g.merchantCode]),[['sandbox','TEST1'],['production','LIVE1']]);
   assert.throws(()=>parseEnvironment({...Object.fromEntries(Object.entries(env).map(([k,v])=>[k,String(v??'')])),DUITKU_PRODUCTION_CALLBACK_URL:'http://api.example.test/api/v1/payments/duitku/callback'}),/DUITKU_PRODUCTION_CALLBACK_URL/);
 });
+test('sandbox allowlist rejects malformed identities and empty enabled sandbox checkout',()=>{
+  const base={DB_DATABASE:'unit_test',DB_USERNAME:'test',CSRF_HMAC_KEY:'x'.repeat(32),OTP_HMAC_KEY:'y'.repeat(32)};
+  assert.equal(parseEnvironment(base).DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS,'');
+  for(const ids of ['user@example.test','*','short-id'])assert.throws(()=>parseEnvironment({...base,DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS:ids}),/DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS/);
+  assert.throws(()=>parseEnvironment({...base,PAYMENT_CHECKOUT_ENABLED:'true'}),/DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS/);
+  const id='12345678-1234-4234-8234-123456789abc';
+  assert.equal(parseEnvironment({...base,DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS:` ${id} `}).DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS,` ${id} `);
+});
 
 test('oversized gateway response and undocumented redirect query fail closed',async()=>{
   await assert.rejects(new DuitkuGateway(config,(async()=>new Response('x'.repeat(32769)))as typeof fetch).getTransactionStatus(request.orderId),{code:'PAYMENT_GATEWAY_UNAVAILABLE'});

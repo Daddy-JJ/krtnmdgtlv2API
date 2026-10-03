@@ -9,7 +9,7 @@ export class PaymentController {
     const data=await this.#service.checkout(actor.userPublicId,parsed.data,key.data);
     res.status(data.status==='pending'&&!data.redirectUrl?202:201).json({success:true,message:data.status==='pending'&&!data.redirectUrl?'Payment checkout is awaiting verification.':'Payment checkout retrieved.',data});
   };
-  capabilities=async(req:Request,res:Response)=>{this.#actors.authenticate(readCookie(req,'access_token')??undefined);res.json({success:true,message:'Payment capabilities retrieved.',data:this.#service.capabilities()});};
+  capabilities=async(req:Request,res:Response)=>{const actor=this.#actors.authenticate(readCookie(req,'access_token')??undefined);res.json({success:true,message:'Payment capabilities retrieved.',data:this.#service.capabilities(actor.userPublicId)});};
   duitkuCallback=async(req:Request,res:Response)=>{await this.#service.duitkuCallback(req.body);res.status(200).type('text/plain').send('OK');};
   reconcile=async(req:Request,res:Response)=>{const actor=this.#actors.authorizeUnsafe(readCookie(req,'access_token')??undefined,req.header('x-csrf-token'));const id=this.#id(req);res.json({success:true,message:'Payment reconciled.',data:await this.#service.reconcile(actor.userPublicId,id)});};
   subscription=async(req:Request,res:Response)=>{const actor=this.#actors.authenticate(readCookie(req,'access_token')??undefined);res.json({success:true,message:'Current subscription retrieved.',data:await this.#service.currentSubscription(actor.userPublicId)});};

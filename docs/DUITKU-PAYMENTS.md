@@ -3,6 +3,27 @@
 Updated: 2026-10-02. Authority: ADR-008 and its retirement follow-up ADR-009.
 Scope: this backend repository only. Production checkout is NOT authorized.
 
+## Shared-database sandbox (2026-10-03)
+
+Owner approved shared database, NOT isolation. Configure
+DUITKU_SANDBOX_ALLOWED_USER_PUBLIC_IDS with comma-separated full dummy-user UUIDs
+(maximum 100). Empty denies sandbox checkout; enabled sandbox with no list fails
+startup validation. Session identity is checked before reservation/provider calls.
+Nonmembers get 403 PAYMENT_SANDBOX_FORBIDDEN; capabilities reflects membership
+without exposing the list. Production ignores it. Checkout stays disabled until
+separate owner activation approval. Callbacks/reconcile continue for existing invoices
+after allowlist changes; removing membership does not undo benefits/cancel invoices.
+
+Sandbox paid still changes dummy subscriptions/cards. Never allowlist customers or
+accounts owning customer resources. Do not reset/reseed/delete history for UAT.
+Shared operational metrics include dummy activity; this is NOT entitlement isolation.
+
+Admin reports add paymentTotals by provider/environment/currency/status and
+productionRevenue: current paid Duitku production gross amount by currency over
+paid_at in the period. Sandbox, unknown and retired providers are excluded from
+revenue; not net accounting. subscriptionsByTier includes dummy activity.
+User-detail payments add provider/environment. No new migration required.
+
 ## Audit: facts, assumptions and unknowns
 
 Verified source findings before implementation:

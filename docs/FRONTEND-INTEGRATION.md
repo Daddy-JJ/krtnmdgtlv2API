@@ -1,5 +1,13 @@
 # Frontend Integration
 
+## Restricted sandbox (2026-10-03)
+
+Capabilities checkoutEnabled now reflects current-user sandbox allowlist membership.
+403 PAYMENT_SANDBOX_FORBIDDEN: disable checkout, do not retry/supply another identity.
+Payload remains {planCode}; no frontend allowlist/credentials. Admin reports add
+paymentTotals and productionRevenue; use only the latter for gross revenue.
+See DUITKU-PAYMENTS.md for shared-database limitations.
+
 ## Payment transition (2026-10-01)
 
 Use [Duitku POP handover](DUITKU-PAYMENTS.md) and [payment OpenAPI](PAYMENTS.openapi.yaml).

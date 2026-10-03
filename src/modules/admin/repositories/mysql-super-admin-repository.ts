@@ -84,7 +84,7 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
     delete identity.internalId;
     const [subscriptions, payments, usage, resume, security, audit] = await Promise.all([
       this.#records(`SELECT s.public_id publicId,p.code tier,s.status,s.starts_at startsAt,s.ends_at endsAt FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.user_id=? ORDER BY s.created_at DESC`, [userId]),
-      this.#records(`SELECT public_id publicId,merchant_order_id orderId,target_plan_code tier,amount,currency,status,gateway_status gatewayStatus,created_at createdAt FROM payments WHERE user_id=? ORDER BY created_at DESC LIMIT 100`, [userId]),
+      this.#records(`SELECT public_id publicId,merchant_order_id orderId,gateway provider,gateway_environment environment,target_plan_code tier,amount,currency,status,gateway_status gatewayStatus,created_at createdAt FROM payments WHERE user_id=? ORDER BY created_at DESC LIMIT 100`, [userId]),
       this.#records(`SELECT public_id publicId,feature_key featureKey,delta_value deltaValue,reason,created_at createdAt FROM usage_adjustments WHERE user_id=? ORDER BY created_at DESC LIMIT 100`, [userId]),
       this.#records(`SELECT r.public_id requestPublicId,e.public_id entitlementPublicId,e.beneficiary_name beneficiary,e.consumed_at consumedAt,r.status,r.revision_count revisionCount,r.retention_expires_at retentionExpiresAt FROM resume_service_entitlements e LEFT JOIN resume_requests r ON r.entitlement_id=e.id WHERE e.user_id=? ORDER BY e.created_at DESC`, [userId]),
       this.#records(`SELECT event,created_at createdAt FROM activity_logs WHERE user_id=? ORDER BY created_at DESC LIMIT 100`, [userId]),
@@ -226,7 +226,7 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
 
   async reports(days: number): Promise<SuperAdminRecord> {
     const since = new Date(Date.now() - (days - 1) * 86_400_000);
-    const [userRegistrations, feedbackByStatus, subscriptionsByTier, mailByStatus, resumeByStatus] = await Promise.all([
+    const [userRegistrations, feedbackByStatus, subscriptionsByTier, mailByStatus, resumeByStatus, paymentTotals, productionRevenue] = await Promise.all([
       this.#records(`SELECT DATE(created_at) date,COUNT(*) count FROM users WHERE created_at>=? GROUP BY DATE(created_at) ORDER BY date`, [since]),
       this.#records(`SELECT status,COUNT(*) count FROM user_feedback WHERE created_at>=? GROUP BY status ORDER BY status`, [since]),
       this.#records(
@@ -236,8 +236,13 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
       ),
       this.#records(`SELECT status,COUNT(*) count FROM mail_outbox WHERE created_at>=? GROUP BY status ORDER BY status`, [since]),
       this.#records(`SELECT status,COUNT(*) count FROM resume_requests WHERE created_at>=? GROUP BY status ORDER BY status`, [since]),
+      this.#records(`SELECT gateway provider,COALESCE(gateway_environment,'unknown') environment,currency,status,COUNT(*) count,SUM(amount) amount
+        FROM payments WHERE created_at>=? GROUP BY gateway,gateway_environment,currency,status ORDER BY gateway,gateway_environment,currency,status`, [since]),
+      this.#records(`SELECT currency,SUM(amount) amount,COUNT(*) count FROM payments
+        WHERE gateway='duitku' AND gateway_environment='production' AND status='paid' AND paid_at>=? GROUP BY currency`, [since]),
     ]);
-    return { days, generatedAt: new Date(), userRegistrations, feedbackByStatus, subscriptionsByTier, mailByStatus, resumeByStatus };
+    return { days, generatedAt: new Date(), userRegistrations, feedbackByStatus, subscriptionsByTier, mailByStatus, resumeByStatus,
+      paymentTotals, productionRevenue, revenueBasis:'duitku-production-paid-gross; excludes sandbox, unknown environment and retired providers' };
   }
 
   async system(): Promise<SuperAdminRecord> {
