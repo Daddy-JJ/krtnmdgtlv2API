@@ -13,11 +13,12 @@ export async function verifyDuitkuPayments(pool:Pool) {
   const [target]=await pool.query<Array<RowDataPacket&{name:string}>>('SELECT DATABASE() name');
   assert.match(target[0]!.name,/_test$/);
   const repository=new MySqlPaymentRepository(pool),limits:RateLimiter={consume:async()=>true};
+  const testOwners:string[]=[];
   async function owner(){
     const id=randomUUID();
     await pool.execute(`INSERT INTO users(public_id,email,password_hash,role,status,email_verified_at,created_at,updated_at) VALUES(?,?,?,'member','active',UTC_TIMESTAMP(),UTC_TIMESTAMP(),UTC_TIMESTAMP())`,[id,`duitku-${id}@example.test`,'not-a-login-hash']);
     await pool.execute(`INSERT INTO cards(public_id,user_id,slug,theme_id,created_at,updated_at) SELECT ?,u.id,?,t.id,UTC_TIMESTAMP(),UTC_TIMESTAMP() FROM users u JOIN themes t ON t.code='starter-clean' WHERE u.public_id=?`,[randomUUID(),randomUUID().replaceAll('-',''),id]);
-    return id;
+    testOwners.push(id);return id;
   }
   function fixture(options:{defer?:boolean;timeout?:boolean}={}){
     let creates=0,checks=0,order='',amount=0,resolveInvoice!:(value:Response)=>void;
@@ -33,7 +34,7 @@ export async function verifyDuitkuPayments(pool:Pool) {
       }
       checks++;return new Response(JSON.stringify({statusCode:status,merchantOrderId:order,amount:statusAmount??String(amount),reference:statusRef}));
     })as typeof fetch);
-    const service=new PaymentService({repository,gateways:[gateway],rateLimiter:limits,checkoutEnabled:true});
+    const service=new PaymentService({repository,gateways:[gateway],rateLimiter:limits,checkoutEnabled:true,sandboxAllowedUserPublicIds:testOwners});
     const payload=()=>({merchantCode,merchantOrderId:order,amount:String(amount),reference:ref,resultCode:'00',signature:createHmac('sha256',apiKey).update(merchantCode+String(amount)+order).digest('hex')});
     return{service,payload,finish:()=>resolveInvoice(response()),get started(){return !!resolveInvoice;},get creates(){return creates;},get checks(){return checks;},set status(value:string){status=value;},set statusRef(value:string){statusRef=value;},set statusAmount(value:string){statusAmount=value;}};
   }

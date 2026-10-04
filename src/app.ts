@@ -98,7 +98,8 @@ export function createApp(dependencies: AppDependencies): Express {
     const privatePath = /^\/(me|cards|themes|payments|subscriptions|admin|resume-service|resume-requests|feedback)(\/|$)/.test(path)
       || path === '/auth/csrf' || path === '/auth/logout'
       || /^\/starter\/cards\/[^/]+\/claim$/.test(path);
-    if (!privatePath) return next();
+    const recoveryPath=/^\/starter\/claim-candidates(?:\/|$)/.test(path);
+    if (!privatePath && !recoveryPath) return next();
     response.setHeader('Cache-Control', 'no-store');
     return privateSessionGuard(request, response, next);
   });

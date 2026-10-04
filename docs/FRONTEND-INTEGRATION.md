@@ -1,5 +1,13 @@
 # Frontend Integration
 
+## Starter verified-email recovery (2026-10-04)
+
+See [Starter recovery contract](STARTER-RECOVERY.md) and
+[OpenAPI](STARTER-RECOVERY.openapi.json). Discover via authenticated GET
+/starter/claim-candidates, then explicit confirmation POST
+/starter/claim-candidates/{publicId}/claim with {confirm:true} and session CSRF.
+No automatic ownership on OTP/login; management-credential claim remains available.
+
 ## Restricted sandbox (2026-10-03)
 
 Capabilities checkoutEnabled now reflects current-user sandbox allowlist membership.

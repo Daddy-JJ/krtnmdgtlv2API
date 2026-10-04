@@ -1,6 +1,7 @@
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { StarterCardInput } from '../../auth/dto/starter-input.ts';
-import type { ClaimUserRecord, ManagedStarterRecord, StarterCardRecord, StarterRepository, StarterTransaction } from './starter-repository.ts';
+import type { ClaimUserRecord, ManagedStarterRecord, StarterCandidate, RecoveryCard, StarterCardRecord, StarterRepository, StarterTransaction } from './starter-repository.ts';
+import { AppError } from '../../../shared/http/errors.ts';
 
 type CardRow = RowDataPacket & { id: number; public_id: string; user_id: number | null; slug: string; plan_code: 'starter'; theme_code: string; locale: 'id' | 'en'; status: string; full_name: string; job_title: string; organization: string; office_phone: string; mobile_phone: string; email: string; website_url: string; address_text: string };
 
@@ -54,9 +55,30 @@ class MySqlStarterTransaction implements StarterTransaction {
   }
 
   async findUser(publicId: string): Promise<ClaimUserRecord | null> {
-    const [rows] = await this.#connection.execute<Array<RowDataPacket & { id: number; public_id: string; status: string; email_verified_at: Date | null }>>('SELECT id, public_id, status, email_verified_at FROM users WHERE public_id = ? FOR UPDATE', [publicId]);
+    const [rows] = await this.#connection.execute<Array<RowDataPacket & { id: number; public_id: string; email: string; status: string; email_verified_at: Date | null }>>('SELECT id, public_id, email, status, email_verified_at FROM users WHERE public_id = ? FOR UPDATE', [publicId]);
     const row = rows[0];
-    return row ? { id: row.id, publicId: row.public_id, status: row.status, emailVerifiedAt: row.email_verified_at } : null;
+    return row ? { id: row.id, publicId: row.public_id, email: row.email, status: row.status, emailVerifiedAt: row.email_verified_at } : null;
+  }
+
+  async listCandidates(email: string, limit: number, offset: number): Promise<StarterCandidate[]> {
+    const [rows] = await this.#connection.execute<Array<RowDataPacket & StarterCandidate>>(`SELECT c.public_id publicId,cc.full_name displayName,c.slug,c.created_at createdAt
+      FROM cards c JOIN card_contacts cc ON cc.card_id=c.id
+      WHERE c.user_id IS NULL AND c.plan_code='starter' AND c.deleted_at IS NULL
+      AND c.status IN ('draft','published') AND BINARY LOWER(TRIM(cc.email))=BINARY ?
+      ORDER BY c.created_at DESC,c.public_id DESC LIMIT ? OFFSET ?`, [email,limit,offset]);
+    return rows.map(row=>({publicId:row.publicId,displayName:row.displayName,slug:row.slug,createdAt:row.createdAt}));
+  }
+
+  async findRecoveryCard(publicId: string): Promise<RecoveryCard | null> {
+    const [rows] = await this.#connection.execute<Array<RowDataPacket & RecoveryCard>>(`SELECT c.id,c.public_id publicId,c.user_id userId,
+      c.plan_code planCode,c.status,c.deleted_at deletedAt,cc.email,cc.full_name displayName,c.slug,c.created_at createdAt
+      FROM cards c JOIN card_contacts cc ON cc.card_id=c.id WHERE c.public_id=? FOR UPDATE`,[publicId]);
+    return rows[0] ?? null;
+  }
+
+  async auditRecoveryClaim(userId: number, cardId: number, publicId: string, now: Date): Promise<void> {
+    await this.#connection.execute(`INSERT INTO activity_logs(user_id,card_id,event,metadata_text,created_at)
+      VALUES(?,?,'starter.claim-confirmed-by-verified-email',?,?)`,[userId,cardId,JSON.stringify({cardPublicId:publicId}),now]);
   }
 
   async userHasCard(userId: number): Promise<boolean> {
@@ -64,7 +86,16 @@ class MySqlStarterTransaction implements StarterTransaction {
     return rows.length > 0;
   }
 
-  async claimCard(cardId: number, userId: number, now: Date): Promise<void> { await this.#connection.execute('UPDATE cards SET user_id = ?, updated_at = ? WHERE id = ? AND user_id IS NULL', [userId, now, cardId]); }
+  async claimCard(cardId: number, userId: number, now: Date): Promise<void> {
+    try {
+      const [result]=await this.#connection.execute<ResultSetHeader>('UPDATE cards SET user_id = ?, updated_at = ? WHERE id = ? AND user_id IS NULL',[userId,now,cardId]);
+      if(result.affectedRows!==1)throw new AppError(409,'STARTER_ALREADY_OWNED','Starter card is already owned.');
+    } catch(error) {
+      // The existing unique active_user_id constraint also guards competing card creation.
+      if((error as {code?:string})?.code==='ER_DUP_ENTRY')throw new AppError(409,'PLAN_LIMIT_REACHED','The account already has an active card.');
+      throw error;
+    }
+  }
   async revokeManageTokens(cardId: number, now: Date): Promise<void> { await this.#connection.execute('UPDATE starter_manage_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE card_id = ?', [now, cardId]); }
 
   async loadCard(cardId: number): Promise<StarterCardRecord> {

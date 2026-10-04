@@ -1,5 +1,14 @@
 # Backend Decision Log
 
+## ADR-011: Confirmed Starter recovery by verified email (2026-10-04)
+
+Use active verified session identity to discover unowned eligible Starter cards.
+Email normalization is trim/lowercase only, preserving dots and plus-tags. Explicit
+confirmation plus session CSRF is mandatory. Transaction locks preserve one-card
+limit, prevent theft, revoke management credentials and write minimal audit atomically.
+Same-owner replay is idempotent. No automatic linking on registration/OTP/login.
+Existing management credential path stays intact. No production mutation/deployment.
+
 ## ADR-010: Restricted shared-database sandbox (2026-10-03)
 
 Owner accepts shared database. Restrict new sandbox checkout to configured dummy

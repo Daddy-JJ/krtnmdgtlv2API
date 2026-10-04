@@ -359,6 +359,64 @@
           }
         },
         {
+          "name": "List Verified Email Starter Candidates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/starter/claim-candidates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter",
+                "claim-candidates"
+              ]
+            },
+            "description": "Verified session only. Optional query: limit 1..20, offset 0..1000. Never submit email/userId."
+          }
+        },
+        {
+          "name": "Confirm Verified Email Starter Claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrfToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/starter/claim-candidates/{{starterPublicId}}/claim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "starter",
+                "claim-candidates",
+                "{{starterPublicId}}",
+                "claim"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        {
           "name": "Read Public Starter Card",
           "request": {
             "method": "GET",

@@ -5,7 +5,7 @@ import { AppError } from '../../../shared/http/errors.ts';
 import type { Rs256AccessTokenService } from '../../../shared/security/access-token.ts';
 import type { CsrfTokenService } from '../../../shared/security/csrf-token.ts';
 import type { OpaqueTokenService } from '../../../shared/security/opaque-token.ts';
-import type { StarterCardRecord, StarterRepository } from '../repositories/starter-repository.ts';
+import type { ClaimUserRecord, StarterCandidate, StarterCardRecord, StarterRepository } from '../repositories/starter-repository.ts';
 import type { StarterSlugGenerator } from './starter-slug-generator.ts';
 import type { StarterEmailToken } from './starter-email-token.ts';
 
@@ -110,6 +110,47 @@ export class StarterService {
     const context = await this.#repository.findManagedSignupContext(publicId, this.#tokens.hash(managePlaintext));
     if (!context) throw new AppError(401, 'STARTER_TOKEN_INVALID', 'Starter management access is invalid.');
     return context;
+  }
+
+  #recoveryUser(user: ClaimUserRecord | null): ClaimUserRecord {
+    if(!user || user.status!=='active')throw new AppError(401,'AUTH_REQUIRED','Authentication is required.');
+    if(!user.emailVerifiedAt)throw new AppError(403,'EMAIL_VERIFICATION_REQUIRED','Verified email is required.');
+    return user;
+  }
+
+  async listCandidates(accessToken: string, limit=20, offset=0) {
+    const claims=this.#accessTokens.verify(accessToken);
+    if(!claims)throw new AppError(401,'AUTH_REQUIRED','Authentication is required.');
+    if(!Number.isInteger(limit)||limit<1||limit>20||!Number.isInteger(offset)||offset<0||offset>1000)throw new AppError(422,'VALIDATION_ERROR','Invalid pagination.');
+    if(!await this.#rateLimiter.consume('starter-claim-candidates',claims.sub,30,60))throw new AppError(429,'RATE_LIMITED','Too many requests.');
+    return this.#repository.transaction(async transaction=>{
+      const user=this.#recoveryUser(await transaction.findUser(claims.sub));
+      const rows=await transaction.listCandidates(user.email.trim().toLowerCase(),limit+1,offset);
+      return {items:rows.slice(0,limit),limit,offset,hasMore:rows.length>limit};
+    });
+  }
+
+  async claimCandidate(publicId: string, accessToken: string, csrfToken: string): Promise<{card:StarterCandidate;alreadyOwned:boolean}> {
+    const claims=this.#accessTokens.verify(accessToken);
+    if(!claims)throw new AppError(401,'AUTH_REQUIRED','Authentication is required.');
+    if(!this.#csrf.verify(csrfToken,claims.sid))throw new AppError(403,'CSRF_INVALID','CSRF validation failed.');
+    if(!await this.#rateLimiter.consume('starter-claim-confirm',claims.sub,10,60))throw new AppError(429,'RATE_LIMITED','Too many requests.');
+    return this.#repository.transaction(async transaction=>{
+      // User row is the shared serialization lock for existing and recovery claim.
+      const user=this.#recoveryUser(await transaction.findUser(claims.sub));
+      const card=await transaction.findRecoveryCard(publicId);
+      if(!card || card.deletedAt || card.planCode!=='starter' || !['draft','published'].includes(card.status)
+        || card.email.trim().toLowerCase()!==user.email.trim().toLowerCase())throw new AppError(404,'STARTER_NOT_ELIGIBLE','Starter card is not eligible for claim.');
+      if(card.userId!==null && card.userId!==user.id)throw new AppError(409,'STARTER_ALREADY_OWNED','Starter card is already owned.');
+      const result={publicId:card.publicId,displayName:card.displayName,slug:card.slug,createdAt:card.createdAt};
+      if(card.userId===user.id)return {card:result,alreadyOwned:true};
+      if(await transaction.userHasCard(user.id))throw new AppError(409,'PLAN_LIMIT_REACHED','The account already has an active card.');
+      const now=new Date();
+      await transaction.claimCard(card.id,user.id,now);
+      await transaction.revokeManageTokens(card.id,now);
+      await transaction.auditRecoveryClaim(user.id,card.id,card.publicId,now);
+      return {card:result,alreadyOwned:false};
+    });
   }
 
   async claim(publicId: string, managePlaintext: string, csrfToken: string, accessToken: string): Promise<{ card: StarterCardResponse; csrfToken: string }> {

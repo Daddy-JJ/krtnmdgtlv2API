@@ -29,7 +29,8 @@ function fixture(failMail = false, requireHttpsUrls = false) {
   let inserts = 0;
   const transaction: StarterTransaction = {
     updateStarter: async (_cardId, data) => { record = { ...record, locale: data.locale, contact: data.contact }; },
-    findUser: async () => ({ id: 2, publicId: 'user-id', status: 'active', emailVerifiedAt: new Date() }),
+    findUser: async () => ({ id: 2, publicId: 'user-id', email:'user@example.test',status: 'active', emailVerifiedAt: new Date() }),
+    listCandidates:async()=>[],findRecoveryCard:async()=>null,auditRecoveryClaim:async()=>undefined,
     userHasCard: async () => false,
     claimCard: async (_cardId, userId) => { record = { ...record, userId }; },
     revokeManageTokens: async () => { activeHash = ''; },

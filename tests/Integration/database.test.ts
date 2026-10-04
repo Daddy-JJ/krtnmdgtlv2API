@@ -249,6 +249,33 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.notEqual(manageRows[0]?.token_hash, updatedStarter.manageToken);
     assert.ok(manageRows.every((row) => row.revoked_at !== null));
 
+    // Recovery is opt-in: registration, OTP and login must not assign anonymous cards.
+    const recoveryEmail='starter-recovery@example.test';
+    const recoveryInput={...starterInput,contact:{...starterInput.contact,email:recoveryEmail}};
+    const recoveryCards=await Promise.all([starter.create(recoveryInput,'recovery-create-1'),starter.create(recoveryInput,'recovery-create-2')]);
+    await auth.register(recoveryEmail,password,'recovery-register');
+    await auth.verifyEmailOtp(recoveryEmail,delivered.otp??'');
+    const recoverySession=await auth.login(recoveryEmail,password,'recovery-login');
+    const recoveryPage=await starter.listCandidates(recoverySession.accessToken,1);
+    assert.equal(recoveryPage.items.length,1);assert.equal(recoveryPage.hasMore,true);
+    assert.deepEqual(Object.keys(recoveryPage.items[0]!).sort(),['createdAt','displayName','publicId','slug']);
+    const [beforeRecovery]=await pool.execute<Array<RowDataPacket&{n:number}>>('SELECT COUNT(*) n FROM cards WHERE public_id IN (?,?) AND user_id IS NULL',recoveryCards.map(r=>r.card.publicId));
+    assert.equal(Number(beforeRecovery[0]!.n),2);
+    await assert.rejects(starter.claimCandidate(recoveryCards[0]!.card.publicId,claimSession.accessToken,claimSession.csrfToken),{code:'STARTER_NOT_ELIGIBLE'});
+    const raced=await Promise.allSettled(recoveryCards.map(r=>starter.claimCandidate(r.card.publicId,recoverySession.accessToken,recoverySession.csrfToken)));
+    assert.equal(raced.filter(r=>r.status==='fulfilled').length,1);
+    assert.ok(raced.some(r=>r.status==='rejected'&&r.reason.code==='PLAN_LIMIT_REACHED'));
+    const winner=raced.find(r=>r.status==='fulfilled');assert.ok(winner&&winner.status==='fulfilled');
+    const recoveryId=winner.value.card.publicId;
+    const repeated=await Promise.all(Array.from({length:3},()=>starter.claimCandidate(recoveryId,recoverySession.accessToken,recoverySession.csrfToken)));
+    assert.ok(repeated.every(r=>r.alreadyOwned));
+    const winnerCredential=recoveryCards.find(r=>r.card.publicId===recoveryId)!;
+    await assert.rejects(starter.signupContext(recoveryId,winnerCredential.manageToken),{code:'STARTER_TOKEN_INVALID'});
+    const [recoveryAudit]=await pool.execute<Array<RowDataPacket&{n:number}>>("SELECT COUNT(*) n FROM activity_logs WHERE event='starter.claim-confirmed-by-verified-email' AND card_id=(SELECT id FROM cards WHERE public_id=?)",[recoveryId]);
+    assert.equal(Number(recoveryAudit[0]!.n),1);
+    const [liveCredentials]=await pool.execute<Array<RowDataPacket&{n:number}>>('SELECT COUNT(*) n FROM starter_manage_tokens WHERE card_id=(SELECT id FROM cards WHERE public_id=?) AND revoked_at IS NULL',[recoveryId]);
+    assert.equal(Number(liveCredentials[0]!.n),0);
+
     const paidEmail = 'phase3b@example.com';
     await auth.register(paidEmail, password, 'phase3b-client');
     assert.match(delivered.otp ?? '', /^[0-9]{6}$/);
@@ -332,7 +359,7 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     const paymentGateway = { provider:'duitku',environment:'sandbox',merchantCode:'TEST1',
       createCheckout:async (input:{orderId:string})=>({reference:`REF_${input.orderId}`,redirectUrl:`https://app-sandbox.duitku.com/redirect_checkout?reference=REF_${input.orderId}`}),
     } as unknown as PaymentGatewayPort;
-    const payments = new PaymentService({repository:paymentRepository,gateways:[paymentGateway],rateLimiter:paymentLimits,checkoutEnabled:true});
+    const payments = new PaymentService({repository:paymentRepository,gateways:[paymentGateway],rateLimiter:paymentLimits,checkoutEnabled:true,sandboxAllowedUserPublicIds:[claimSession.user.publicId]});
     const checkout = await payments.checkout(claimSession.user.publicId,{planCode:'basic'},randomUUID());
     assert.equal(checkout.amount, 55000);
     assert.equal(checkout.durationDays, 365);

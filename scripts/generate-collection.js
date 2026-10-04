@@ -173,6 +173,10 @@ const collection = {
         }),
         request('Open Starter Email Access', 'POST', '/starter/access', { body: { publicId: '{{starterPublicId}}', token: '{{starterEmailToken}}' } }),
         request('Read Starter Signup Context', 'GET', '/starter/cards/{{starterPublicId}}/signup-context'),
+        request('List Verified Email Starter Candidates', 'GET', '/starter/claim-candidates', { description: 'Verified session only. Optional query: limit 1..20, offset 0..1000. Never submit email/userId.' }),
+        request('Confirm Verified Email Starter Claim', 'POST', '/starter/claim-candidates/{{starterPublicId}}/claim', {
+          body: { confirm: true }, csrf: true,
+        }),
         request('Read Public Starter Card', 'GET', '/public/cards/{{starterSlug}}', {
           tests: ["if (pm.response.code === 200) pm.test('WhatsApp URL is exposed for all tiers', () => pm.expect(pm.response.json().data.whatsappUrl).to.match(/^https:\\/\\/wa\\.me\\/628/));"],
         }),

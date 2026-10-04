@@ -3,6 +3,8 @@ import type { StarterController } from '../controllers/starter-controller.ts';
 
 export function createStarterRouter(controller: StarterController): Router {
   const router = Router();
+  router.get('/claim-candidates',controller.candidates);
+  router.post('/claim-candidates/:publicId/claim',controller.confirmCandidate);
   router.post('/cards', controller.create);
   router.post('/access', controller.openAccess);
   router.get('/cards/:publicId/signup-context', controller.signupContext);

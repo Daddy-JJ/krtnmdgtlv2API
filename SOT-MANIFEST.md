@@ -1,5 +1,8 @@
 # Backend SOT Manifest
 
+Starter recovery by verified email: ADR-011, 2026-10-04;
+docs/STARTER-RECOVERY.md owns the additive confirmed-recovery API contract.
+
 Updated: 2026-10-02
 Shared-database sandbox restriction: 2026-10-03, ADR-010.
 

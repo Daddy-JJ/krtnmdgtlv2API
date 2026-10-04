@@ -13,6 +13,29 @@ export class StarterController {
   readonly #cookies: CookiePolicy;
   constructor(service: StarterService, cookies: CookiePolicy) { this.#service = service; this.#cookies = cookies; }
 
+  candidates = async (request: Request, response: Response): Promise<void> => {
+    response.set('Cache-Control','no-store');
+    const access=readCookie(request,'access_token');
+    if(!access)throw new AppError(401,'AUTH_REQUIRED','Authentication is required.');
+    const page=z.object({limit:z.string().regex(/^\d{1,2}$/).transform(Number).pipe(z.number().int().min(1).max(20)).default(20),
+      offset:z.string().regex(/^\d{1,4}$/).transform(Number).pipe(z.number().int().min(0).max(1000)).default(0)}).strict().safeParse(request.query);
+    if(!page.success)throw this.#validation(page.error.issues);
+    response.json({success:true,message:'Starter claim candidates retrieved.',data:await this.#service.listCandidates(access,page.data.limit,page.data.offset)});
+  };
+
+  confirmCandidate = async (request: Request, response: Response): Promise<void> => {
+    response.set('Cache-Control','no-store');
+    const access=readCookie(request,'access_token'),csrf=request.header('x-csrf-token');
+    if(!access)throw new AppError(401,'AUTH_REQUIRED','Authentication is required.');
+    if(!csrf)throw new AppError(403,'CSRF_INVALID','CSRF validation failed.');
+    const id=publicIdSchema.safeParse(request.params.publicId),body=z.object({confirm:z.literal(true)}).strict().safeParse(request.body);
+    if(!id.success||!body.success)throw this.#validation([...(id.success?[]:id.error.issues),...(body.success?[]:body.error.issues)]);
+    const result=await this.#service.claimCandidate(id.data,access,csrf);
+    response.clearCookie('starter_manage',this.#cookies.clear('/api/v1/starter'));
+    response.clearCookie('starter_csrf_token',this.#cookies.clear('/',false));
+    response.json({success:true,message:result.alreadyOwned?'Starter card already belongs to this account.':'Starter card claimed.',data:result});
+  };
+
   create = async (request: Request, response: Response): Promise<void> => {
     const parsed = starterCardInputSchema.safeParse(request.body);
     if (!parsed.success) throw this.#validation(parsed.error.issues);
