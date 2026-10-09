@@ -6,12 +6,51 @@ import { parseEnvironment } from '../../src/config/environment.ts';
 import { createPaymentGateways } from '../../src/modules/payments/gateways/payment-gateways.ts';
 import { readFile } from 'node:fs/promises';
 import type { CreateGatewayCheckout } from '../../src/modules/payments/gateways/payment-gateway-port.ts';
+import type { Logger, LogContext } from '../../src/shared/logging/logger.ts';
 
 const key='mock-only-merchant-key';
 const config={environment:'sandbox' as const,merchantCode:'TEST1',apiKey:key,callbackUrl:'https://api.example.test/api/v1/payments/duitku/callback',returnUrl:'https://example.test/app/billing/result',expiryMinutes:60,timeoutSeconds:1};
 const request:CreateGatewayCheckout={orderId:'KND_test_order',amount:55000,customer:{email:'user@example.test',firstName:'Test User'},item:{id:'basic',name:'Basic',quantity:1,price:55000}};
 const hmac=(value:string)=>createHmac('sha256',key).update(value).digest('hex');
 const callback=()=>({merchantCode:'TEST1',merchantOrderId:request.orderId,amount:'55000',reference:'TEST_REF',resultCode:'00',signature:hmac(`TEST155000${request.orderId}`)});
+
+test('diagnostics classify failures without private transport data or a changed 503',async()=>{
+  const cases:[string,typeof fetch,number|null][] = [
+    ['http_error',(async()=>new Response('private-token',{status:401})) as typeof fetch,401],
+    ['http_error',(async()=>new Response('not found',{status:404})) as typeof fetch,404],
+    ['http_error',(async()=>new Response('throttle',{status:429})) as typeof fetch,429],
+    ['invalid_json',(async()=>new Response('private-token')) as typeof fetch,200],
+    ['empty_body',(async()=>new Response(null)) as typeof fetch,200],
+    ['response_too_large',(async()=>new Response('x'.repeat(32769))) as typeof fetch,200],
+    ['timeout',(async()=>{throw new DOMException('private','TimeoutError');}) as typeof fetch,null],
+    ...(['ENOTFOUND','CERT_HAS_EXPIRED','ECONNRESET','UND_ERR_CONNECT_TIMEOUT'] as const).map((code,i)=>[
+      ['dns','tls','connection','timeout'][i]!,
+      (async()=>{throw new TypeError('private@example.test',{cause:{code,secret:key}});}) as typeof fetch,null,
+    ] as [string,typeof fetch,number|null]),
+    ['transport',(async()=>{throw new Error('private-token');}) as typeof fetch,null],
+  ];
+  for (const [category,transport,httpStatus] of cases) {
+    const entries:{event:string;context:LogContext|undefined}[]=[];
+    const logger:Logger={info:()=>{},error:(event,context)=>{entries.push({event,context});}};
+    await assert.rejects(new DuitkuGateway(config,transport,logger).getTransactionStatus(request.orderId),{code:'PAYMENT_GATEWAY_UNAVAILABLE',status:503,message:'Payment verification is temporarily unavailable.'});
+    assert.equal(entries.length,1);
+    assert.equal(entries[0]!.event,'payment.gateway-request-failed');
+    assert.equal(entries[0]!.context!.category,category);
+    assert.equal(entries[0]!.context!.http_status,httpStatus);
+    assert.equal(entries[0]!.context!.operation,'transaction_status');
+    assert.deepEqual(Object.keys(entries[0]!.context!).sort(),['category','duration_ms','environment','http_status','operation','provider']);
+    assert.doesNotMatch(JSON.stringify(entries),/private|TEST1|TEST_REF|KND_test_order|signature|mock-only|https:/);
+  }
+});
+
+test('diagnostic sink failure does not mask gateway error or retry create',async()=>{
+  let calls=0;
+  const logger:Logger={info:()=>{},error:()=>{throw new Error('private logger');}};
+  const gateway=new DuitkuGateway(config,(async()=>{calls++;throw new Error('private');}) as typeof fetch,logger);
+  await assert.rejects(gateway.createCheckout(request),{code:'PAYMENT_GATEWAY_UNAVAILABLE',status:503});
+  assert.equal(calls,1);
+});
+
 
 test('POP create uses timestamp-header HMAC, bounded HTTPS request, and backend invoice fields',async()=>{
   const transport=(async(url,init)=>{

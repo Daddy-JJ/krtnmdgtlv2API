@@ -1,5 +1,8 @@
 # Backend SOT Manifest
 
+Gateway diagnostics, 2026-10-09: docs/DUITKU-DIAGNOSTICS.md describes safe
+transport logging; no financial behavior change or deployment authorization.
+
 Starter recovery by verified email: ADR-011, 2026-10-04;
 docs/STARTER-RECOVERY.md owns the additive confirmed-recovery API contract.
 

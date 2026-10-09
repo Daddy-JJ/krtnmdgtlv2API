@@ -10,6 +10,29 @@ import { createResumeRequestRouter } from '../../src/modules/resume-service/rout
 import type { ResumeController } from '../../src/modules/resume-service/controllers/resume-controller.ts';
 import type { ResumeFileController } from '../../src/modules/resume-service/files/resume-file-controller.ts';
 import { errorHandler } from '../../src/shared/http/error-handler.ts';
+import { createRequire } from 'node:module';
+import sharp from 'sharp';
+
+test('Express proxy dependency rejects IPv4 spoofing through short mapped IPv6 subnet',()=>{
+  const require = createRequire(import.meta.url);
+  const expressRequire = createRequire(require.resolve('express'));
+  const proxyaddr = expressRequire('proxy-addr') as {compile(value:string[]):(ip:string)=>boolean};
+  assert.equal(proxyaddr.compile(['::ffff:10.0.0.0/8'])('203.0.113.7'),false);
+  const trusted = proxyaddr.compile(['10.0.0.0/8']);
+  assert.equal(trusted('10.1.2.3'),true);
+  assert.equal(trusted('203.0.113.7'),false);
+  assert.equal(trusted('::ffff:10.1.2.3'),true);
+});
+
+test('patched Sharp preserves bounded image conversion and rejects malformed input',async()=>{
+  const source = await sharp({create:{width:32,height:32,channels:4,background:'#123456'}}).png().toBuffer();
+  const output = await sharp(source,{limitInputPixels:4096}).resize(16,16).webp().toBuffer();
+  const metadata = await sharp(output).metadata();
+  assert.equal(metadata.format,'webp');
+  assert.equal(metadata.width,16);assert.equal(metadata.height,16);
+  await assert.rejects(sharp(source,{limitInputPixels:100}).toBuffer());
+  await assert.rejects(sharp(Buffer.from('not an image')).toBuffer());
+});
 
 const smtp = {
   host: 'mail.example.test', port: 465, encryption: 'ssl' as const,
