@@ -14,13 +14,15 @@ test('admin data allowlist contains every non-internal database table exactly on
   assert.equal(isAdminDataResource('resume_retention_notices'), true);
   assert.equal(isAdminDataResource('email_templates'), true);
   assert.equal(isAdminDataResource('schema_migrations'), false);
+  assert.equal(isAdminDataResource('card_email_identities'), false);
+  assert.equal(isAdminDataResource('card_email_legacy_holds'), false);
   assert.equal(isAdminDataResource('users; DROP TABLE users'), false);
   assert.equal(isReadOnlyAdminDataResource('user_feedback'), true);
   for (const resource of ADMIN_DATA_RESOURCES) assert.equal(isReadOnlyAdminDataResource(resource), true);
 });
 
 test('credential and token material is classified as sensitive', () => {
-  for (const column of ['password_hash', 'token_hash', 'code_hash', 'actor_ip_hash', 'sha256', 'gateway_reference', 'gateway_redirect_url']) {
+  for (const column of ['password_hash', 'token_hash', 'code_hash', 'actor_ip_hash', 'sha256', 'gateway_reference', 'gateway_redirect_url','registration_email']) {
     assert.equal(isSensitiveAdminDataColumn(column), true, column);
   }
   for (const column of ['public_id', 'email', 'created_at']) {

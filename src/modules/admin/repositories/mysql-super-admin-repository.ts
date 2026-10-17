@@ -359,7 +359,7 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
         owner_public_id: string | null;
         contact_email: string;
       }>>(
-        `SELECT c.id,c.user_id,u.public_id owner_public_id,cc.email contact_email
+        `SELECT c.id,c.user_id,u.public_id owner_public_id,CAST(c.registration_email AS CHAR) contact_email
          FROM cards c JOIN card_contacts cc ON cc.card_id=c.id LEFT JOIN users u ON u.id=c.user_id
          WHERE c.public_id=? AND c.deleted_at IS NULL AND c.status<>'deleted' FOR UPDATE`,
         [cardPublicId],
@@ -371,17 +371,18 @@ export class MySqlSuperAdminRepository implements SuperAdminRepository {
       let targetUserId = card.user_id;
 
       if (input.action === 'CONNECT_MATCHING_VERIFIED_ACCOUNT') {
+        if(!card.contact_email)throw new AppError(409,'CARD_EMAIL_IDENTITY_REVIEW_REQUIRED','Card identity requires support review.');
         if (card.user_id !== null) throw new AppError(409, 'CARD_ALREADY_CONNECTED', 'Card is already connected to an account.');
         const [users] = await connection.execute<Array<RowDataPacket & { id: number; public_id: string }>>(
           `SELECT id,public_id FROM users
-           WHERE LOWER(email)=LOWER(?) AND status='active' AND email_verified_at IS NOT NULL
+           WHERE BINARY LOWER(TRIM(email))=BINARY ? AND status='active' AND email_verified_at IS NOT NULL
            LIMIT 1 FOR UPDATE`,
           [card.contact_email],
         );
         const user = users[0];
         if (!user) throw new AppError(409, 'MATCHING_VERIFIED_ACCOUNT_NOT_FOUND', 'A matching active and verified account was not found.');
         const [owned] = await connection.execute<Array<RowDataPacket & { id: number }>>(
-          `SELECT id FROM cards WHERE user_id=? AND deleted_at IS NULL AND status<>'deleted' AND id<>? LIMIT 1 FOR UPDATE`,
+          `SELECT id FROM cards WHERE user_id=? AND id<>? LIMIT 1 FOR UPDATE`,
           [user.id, card.id],
         );
         if (owned[0]) throw new AppError(409, 'PLAN_LIMIT_REACHED', 'The matching account already has an active card.');

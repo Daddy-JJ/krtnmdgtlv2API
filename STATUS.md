@@ -1,5 +1,47 @@
 # Backend Status
 
+## 2026-10-18 - One registration email per card (finalized locally; NOT live)
+
+ADR-012: anonymous first Starter still immediately published. Immutable registration
+identity and private DB reservations protect both create paths; verified-email claim
+required for management. Migration 015 contains only per-email legacy exclusion
+snapshots; it never selects a duplicate winner, backfills registration identity,
+changes publication/ownership, or removes history. Unrelated NULL legacy identities
+do NOT globally block fresh Starter publication. Existing verified owners keep access
+and account-email alias roundtrips; unproven legacy claim needs controlled review.
+
+Final QA on Node 22.23.2 / disposable MariaDB 10.4.32 loopback port33327:
+- npm run qa: typecheck PASS; 262 total / 261 pass / 0 fail / 1 DB suite skipped;
+  npm audit: 0 vulnerabilities. Final focused Starter/identity/HTTP/recovery/slug
+  and generated-contract regressions: 35/35 pass (including final theme guard).
+- Separate explicit knd_email_live_compat_test: 22/22 tests/subtests pass, including
+  17 hosting-shaped legacy cases (7 groups, 28 cards, 24 unowned, 4 owned), existing
+  public/owned access, concurrent creates, aliases, claim/OTP/session and payment/mail
+  regressions. Mail/gateway mocked; no real sends or transactions.
+- Read-only card-email preflight: 15/15 cutover checks pass on the isolated target;
+  negative missing-hold and FK probes reject with exit 1. Missing 015 ledger denies
+  creation before reservation. Normalizer parity: 116 SQL cases across whitespace,
+  sql_mode and MULTILINE/UNGREEDY defaults; all pass.
+- Schema/collection regenerated only from the isolated target: 47 public/admin
+  resources, private email tables excluded. No dependencies or env files changed.
+
+Owner-provided hosting SELECT screenshots confirm 7 contact duplicate groups / 21
+extra cards / 28 cards: 24 unowned, 4 owned, all published, no deleted/suspended in
+those groups, and 0 multiple-card owner groups across the separate inventory.
+This is not agent access, immutable creation identity, or hosted runtime/UAT proof.
+Follow-up owner screenshots: hosting HEAD 2b4274d, listed migrations through 013
+applied, cPanel app Node 22.23.3 and MariaDB 11.4.13. phpMyAdmin session timezone
+SYSTEM is not the backend pool session; CLI/Passenger parity is still unverified.
+Migration 014/015 only executed on the disposable database, NOT existing local or
+hosting data. No frontend edits, production data changes, real email or deployment.
+Owner approved backend main commit/push on 2026-10-18; this authorizes Git publication
+only, NOT migration, backup/cutover, hosting restart, live UAT or production cleanup.
+Backup, closed-writer cutover, migrations/snapshot and deployment require separate
+approval. Runbook and explicit controlled legacy review: docs/CARD-EMAIL-IDENTITY.md.
+The temporary QA MariaDB process was stopped after verifying its exact datadir;
+generated temporary data removed, reproducible from synthetic fixtures. Main/local
+existing and hosting databases were not changed. git diff --check passes.
+
 Updated: 2026-10-02
 
 ## 2026-10-02 - Duitku-only verification (checkout disabled)

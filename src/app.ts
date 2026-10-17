@@ -97,7 +97,8 @@ export function createApp(dependencies: AppDependencies): Express {
     if (path === '/payments/duitku/callback') return next();
     const privatePath = /^\/(me|cards|themes|payments|subscriptions|admin|resume-service|resume-requests|feedback)(\/|$)/.test(path)
       || path === '/auth/csrf' || path === '/auth/logout'
-      || /^\/starter\/cards\/[^/]+\/claim$/.test(path);
+      || /^\/starter\/cards\/[^/]+\/claim$/.test(path)
+      || (request.method==='PUT' && /^\/starter\/cards\/[^/]+$/.test(path));
     const recoveryPath=/^\/starter\/claim-candidates(?:\/|$)/.test(path);
     if (!privatePath && !recoveryPath) return next();
     response.setHeader('Cache-Control', 'no-store');

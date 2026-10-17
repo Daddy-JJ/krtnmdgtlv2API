@@ -291,7 +291,7 @@
                 }
               }
             },
-            "description": ""
+            "description": "Anonymous instant publication, no Login/OTP prerequisite. One immutable registration email per card. 409 STARTER_EMAIL_ALREADY_EXISTS covers new identity conflicts and legacy email holds, with data:null and no cookie or existing identifier. Unrelated legacy cards do not block fresh emails. Never auto-retry POST. Management links are claim context; edit through /cards after verified-email claim. Unproven legacy signup context/claim requires support review (CARD_EMAIL_IDENTITY_REVIEW_REQUIRED)."
           },
           "event": [
             {
@@ -355,7 +355,7 @@
                 "signup-context"
               ]
             },
-            "description": ""
+            "description": "HttpOnly management cookie, no-store. A valid legacy context with unknown registration identity returns 409 CARD_EMAIL_IDENTITY_REVIEW_REQUIRED (support), not an invalid-cookie 401. Never auto-create or auto-claim."
           }
         },
         {

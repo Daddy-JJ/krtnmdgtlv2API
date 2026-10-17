@@ -1,6 +1,6 @@
 -- GENERATED FILE. Run: npm run schema:generate
 
--- Application tables: 47. Internal schema_migrations is intentionally omitted.
+-- Admin-reference tables: 47. Internal migration/email identity tables omitted; use migrations for full runtime schema.
 
 SET NAMES utf8mb4;
 
@@ -76,10 +76,12 @@ CREATE TABLE IF NOT EXISTS `cards` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   `active_user_id` bigint(20) unsigned GENERATED ALWAYS AS (case when `deleted_at` is null and `status` <> 'deleted' then `user_id` else NULL end) STORED,
+  `registration_email` varbinary(254) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `public_id` (`public_id`),
   UNIQUE KEY `slug` (`slug`),
   UNIQUE KEY `uq_cards_active_user` (`active_user_id`),
+  UNIQUE KEY `uq_cards_registration_email` (`registration_email`),
   KEY `idx_cards_status` (`status`),
   KEY `fk_cards_theme` (`theme_id`),
   KEY `idx_cards_user` (`user_id`),

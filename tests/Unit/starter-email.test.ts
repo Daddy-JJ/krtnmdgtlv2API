@@ -28,8 +28,9 @@ function fixture(failMail = false, requireHttpsUrls = false) {
   let manageUrl = '';
   let inserts = 0;
   const transaction: StarterTransaction = {
+    reserveEmail:async()=>{},
     updateStarter: async (_cardId, data) => { record = { ...record, locale: data.locale, contact: data.contact }; },
-    findUser: async () => ({ id: 2, publicId: 'user-id', email:'user@example.test',status: 'active', emailVerifiedAt: new Date() }),
+    findUser: async () => ({ id: 2, publicId: 'user-id', email:'test@example.test',status: 'active', emailVerifiedAt: new Date() }),
     listCandidates:async()=>[],findRecoveryCard:async()=>null,auditRecoveryClaim:async()=>undefined,
     userHasCard: async () => false,
     claimCard: async (_cardId, userId) => { record = { ...record, userId }; },
@@ -39,7 +40,7 @@ function fixture(failMail = false, requireHttpsUrls = false) {
     insertStarter: async input => {
       inserts++;
       activeHash = input.tokenHash;
-      record = { id: 1, publicId: input.publicId, userId: null, slug: input.slug, planCode: 'starter', themeCode: 'starter-clean', status: 'published', ...input.data };
+      record = { registrationEmail:input.data.contact.email,id: 1, publicId: input.publicId, userId: null, slug: input.slug, planCode: 'starter', themeCode: 'starter-clean', status: 'published', ...input.data };
       return record;
     },
     findManaged: async (id, hash) => id === record.publicId && hash === activeHash ? { tokenId: 1, tokenHash: hash, card: record } : null,
@@ -96,9 +97,9 @@ test('Starter without website supports signup context, update, claim, and claime
   assert.equal(created.card.contact.websiteUrl, '');
   assert.deepEqual(await f.service.signupContext(created.card.publicId, created.manageToken), { email: input.contact.email });
   await assert.rejects(f.service.signupContext(created.card.publicId, 'wrong-token'), { code: 'STARTER_TOKEN_INVALID' });
-  const updated = await f.service.update(created.card.publicId, created.manageToken, created.csrfToken, input);
-  assert.equal(updated.card.contact.websiteUrl, '');
-  const claimed = await f.service.claim(updated.card.publicId, updated.manageToken, updated.csrfToken, 'access');
+  await assert.rejects(f.service.update(created.card.publicId, created.manageToken, created.csrfToken, input),{code:'STARTER_CLAIM_REQUIRED'});
+  await assert.rejects(f.service.update(created.card.publicId, created.manageToken, 'invalid-csrf', input),{code:'CSRF_INVALID'});
+  const claimed = await f.service.claim(created.card.publicId, created.manageToken, created.csrfToken, 'access');
   assert.equal(claimed.card.contact.websiteUrl, '');
-  await assert.rejects(f.service.signupContext(claimed.card.publicId, updated.manageToken), { code: 'STARTER_TOKEN_INVALID' });
+  await assert.rejects(f.service.signupContext(claimed.card.publicId, created.manageToken), { code: 'STARTER_TOKEN_INVALID' });
 });

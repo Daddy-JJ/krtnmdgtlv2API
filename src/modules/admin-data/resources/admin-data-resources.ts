@@ -49,6 +49,8 @@ export const ADMIN_DATA_RESOURCES = Object.freeze([
 ] as const);
 
 export type AdminDataResource = (typeof ADMIN_DATA_RESOURCES)[number];
+// Reservation storage is deliberately excluded from generic admin reads/exports.
+export const INTERNAL_DATABASE_TABLES = Object.freeze(['schema_migrations','card_email_identities','card_email_legacy_holds']);
 
 const resourceSet = new Set<string>(ADMIN_DATA_RESOURCES);
 // The generic administrative data API is intentionally read-only.  Mutations
@@ -64,7 +66,7 @@ export function isReadOnlyAdminDataResource(value: AdminDataResource): boolean {
   return !genericMutableResourceSet.has(value);
 }
 
-const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$|^storage_path$|^snap_redirect_url$|^gateway_redirect_url$|^gateway_reference$|^payload_text$|^response_message$|^metadata_text$)/i;
+const sensitiveColumnPattern = /(?:password|token|secret|otp|credential|(?:^|_)hash$|_hash$|sha256$|^storage_path$|^snap_redirect_url$|^gateway_redirect_url$|^gateway_reference$|^registration_email$|^payload_text$|^response_message$|^metadata_text$)/i;
 
 export function isSensitiveAdminDataColumn(column: string): boolean {
   return sensitiveColumnPattern.test(column);

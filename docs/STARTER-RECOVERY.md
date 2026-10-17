@@ -1,5 +1,15 @@
 # Starter recovery by verified email
 
+2026-10-17 security update: ADR-012 / CARD-EMAIL-IDENTITY.md supersedes matching
+against mutable contact.email. Recovery now uses immutable registration identity;
+unreviewed legacy rows are not auto-backfilled or auto-claimed. Publication remains
+anonymous and instant. See the separate migration/deployment gates before rollout.
+Migration 015 excludes snapshot legacy emails from new creation without assigning
+ownership. Valid legacy signup-context/management claim with unknown identity
+returns CARD_EMAIL_IDENTITY_REVIEW_REQUIRED; verified recovery does not silently
+fall back to editable contact email. Empty candidates can require support review.
+This does not restrict another email's first publication or revoke existing owners.
+
 ## Local QA evidence (2026-10-04)
 
 Focused Starter HTTP/service/email/OpenAPI: 17/17 passed. npm run qa: typecheck

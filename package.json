@@ -16,6 +16,7 @@
     "migrate": "node scripts/migrate.ts up",
     "migrate:status": "node scripts/migrate.ts status",
     "payments:audit": "node scripts/payment-audit.ts",
+    "cards:email:preflight": "node scripts/card-email-preflight.ts",
     "migrate:rollback": "node scripts/migrate.ts down",
     "db:preflight": "node scripts/database-preflight.ts",
     "db:backup": "node scripts/backup-database.ts",

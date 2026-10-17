@@ -4,6 +4,7 @@ import mysql from 'mysql2/promise';
 import { contractDatabase } from './contract-database.js';
 import {
   ADMIN_DATA_RESOURCES,
+  INTERNAL_DATABASE_TABLES,
   isReadOnlyAdminDataResource,
   isSensitiveAdminDataColumn,
 } from '../src/modules/admin-data/resources/admin-data-resources.ts';
@@ -26,7 +27,7 @@ const [tableRows] = await connection.execute(
 await connection.end();
 
 const allowed = new Set(ADMIN_DATA_RESOURCES);
-const applicationTables = tableRows.map((row) => row.tableName).filter((name) => name !== 'schema_migrations');
+const applicationTables = tableRows.map((row) => row.tableName).filter((name) => !INTERNAL_DATABASE_TABLES.includes(name));
 const missing = ADMIN_DATA_RESOURCES.filter((name) => !applicationTables.includes(name));
 const unregistered = applicationTables.filter((name) => !allowed.has(name));
 if (missing.length || unregistered.length) {
@@ -168,11 +169,12 @@ const collection = {
       description: 'Create attempts SMTP delivery immediately. emailSent means SMTP accepted, not inbox delivery. Access exchanges the email fragment token once; keep the cookie jar enabled.',
       item: [
         request('Create Starter Card', 'POST', '/starter/cards', {
+          description: 'Anonymous instant publication, no Login/OTP prerequisite. One immutable registration email per card. 409 STARTER_EMAIL_ALREADY_EXISTS covers new identity conflicts and legacy email holds, with data:null and no cookie or existing identifier. Unrelated legacy cards do not block fresh emails. Never auto-retry POST. Management links are claim context; edit through /cards after verified-email claim. Unproven legacy signup context/claim requires support review (CARD_EMAIL_IDENTITY_REVIEW_REQUIRED).',
           body: { locale: 'id', contact: { fullName: 'Test Starter', jobTitle: '', organization: '', officePhone: '021123456', mobilePhone: '08123456789', email: '{{starterEmail}}', websiteUrl: '', addressText: 'Jakarta' } },
           tests: ["if (pm.response.code === 201) { const d = pm.response.json().data; pm.collectionVariables.set('starterPublicId', d.publicId); pm.collectionVariables.set('starterSlug', d.slug); pm.test('Starter slug is exactly seven ASCII letters', () => pm.expect(d.slug).to.match(/^[A-Za-z]{7}$/)); pm.test('Email status is explicit', () => pm.expect(d.emailSent).to.be.a('boolean')); }"],
         }),
         request('Open Starter Email Access', 'POST', '/starter/access', { body: { publicId: '{{starterPublicId}}', token: '{{starterEmailToken}}' } }),
-        request('Read Starter Signup Context', 'GET', '/starter/cards/{{starterPublicId}}/signup-context'),
+        request('Read Starter Signup Context', 'GET', '/starter/cards/{{starterPublicId}}/signup-context', { description: 'HttpOnly management cookie, no-store. A valid legacy context with unknown registration identity returns 409 CARD_EMAIL_IDENTITY_REVIEW_REQUIRED (support), not an invalid-cookie 401. Never auto-create or auto-claim.' }),
         request('List Verified Email Starter Candidates', 'GET', '/starter/claim-candidates', { description: 'Verified session only. Optional query: limit 1..20, offset 0..1000. Never submit email/userId.' }),
         request('Confirm Verified Email Starter Claim', 'POST', '/starter/claim-candidates/{{starterPublicId}}/claim', {
           body: { confirm: true }, csrf: true,

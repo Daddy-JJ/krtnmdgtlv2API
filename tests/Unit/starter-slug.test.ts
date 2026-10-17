@@ -47,6 +47,7 @@ test('Starter allocation retries a checked collision and keeps the second seven-
   const candidates = ['aaaaaaa', 'bBbBbBb'];
   let inserted = '';
   const transaction = {
+    reserveEmail:async()=>{},
     slugExists: async (slug: string) => slug === 'aaaaaaa',
     insertStarter: async (value: { slug: string }) => { inserted = value.slug; return created(value.slug); },
   } as unknown as StarterTransaction;
@@ -59,10 +60,11 @@ test('Starter allocation retries a checked collision and keeps the second seven-
 test('Starter allocation retries a database unique race and fails safely after ten collisions', async () => {
   let inserts = 0;
   const raceTransaction = {
+    reserveEmail:async()=>{},
     slugExists: async () => false,
     insertStarter: async (value: { slug: string }) => {
       inserts += 1;
-      if (inserts === 1) throw Object.assign(new Error('duplicate'), { code: 'ER_DUP_ENTRY' });
+      if (inserts === 1) throw Object.assign(new Error('duplicate'), { code: 'ER_DUP_ENTRY',sqlMessage:"Duplicate entry for key 'cards_slug_unique'" });
       return created(value.slug);
     },
   } as unknown as StarterTransaction;
@@ -71,7 +73,7 @@ test('Starter allocation retries a database unique race and fails safely after t
   assert.equal(inserts, 2);
 
   let attempts = 0;
-  const collisionTransaction = { slugExists: async () => { attempts += 1; return true; } } as unknown as StarterTransaction;
+  const collisionTransaction = { reserveEmail:async()=>{},slugExists: async () => { attempts += 1; return true; } } as unknown as StarterTransaction;
   const collisionRepository = { transaction: async <T>(work: (value: StarterTransaction) => Promise<T>) => work(collisionTransaction) } as StarterRepository;
   await assert.rejects(service(collisionRepository, { generate: () => 'dDdDdDd' }).create(input, 'client'), { status: 503, code: 'SERVICE_UNAVAILABLE' });
   assert.equal(attempts, 10);

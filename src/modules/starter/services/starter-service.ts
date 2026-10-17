@@ -8,6 +8,7 @@ import type { OpaqueTokenService } from '../../../shared/security/opaque-token.t
 import type { ClaimUserRecord, StarterCandidate, StarterCardRecord, StarterRepository } from '../repositories/starter-repository.ts';
 import type { StarterSlugGenerator } from './starter-slug-generator.ts';
 import type { StarterEmailToken } from './starter-email-token.ts';
+import { normalizeCardEmail, duplicateCardEmail, identityReview } from '../../../shared/security/card-email-identity.ts';
 
 export type StarterCardResponse = Readonly<{
   publicId: string;
@@ -45,17 +46,20 @@ export class StarterService {
   }
 
   async create(data: StarterCardInput, clientKey: string): Promise<{ card: StarterCardResponse & { emailSent: boolean }; manageToken: string; csrfToken: string }> {
+    data={...data,contact:{...data.contact,email:normalizeCardEmail(data.contact.email)}};
     this.#validateUrls(data);
     if (!await this.#rateLimiter.consume('starter-create', clientKey, 10, 3600)) throw new AppError(429, 'RATE_LIMITED', 'Too many requests.');
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const slug = this.#slugs.generate();
-      const manage = this.#tokens.issue();
+      let manage:ReturnType<OpaqueTokenService['issue']>|undefined;
       try {
         const created = await this.#repository.transaction(async (transaction) => {
-          if (await transaction.slugExists(slug)) return null;
+          await transaction.reserveEmail(data.contact.email,new Date());
+          if (await transaction.slugExists(slug)) throw new AppError(409,'STARTER_SLUG_COLLISION','Starter slug collision.');
+          manage=this.#tokens.issue();
           return transaction.insertStarter({ publicId: randomUUID(), slug, tokenHash: manage.hash, data, now: new Date() });
         });
-        if (created) {
+        if (created && manage) {
           let emailSent = false;
           if (this.#email) {
             const token = this.#email.tokens.issue(created.publicId, manage.plaintext);
@@ -68,7 +72,12 @@ export class StarterService {
           return { card: { ...this.#response(created), emailSent }, manageToken: manage.plaintext, csrfToken: this.#csrf.issue(`starter:${manage.hash}`) };
         }
       } catch (error) {
+        if(error instanceof AppError && error.code==='STARTER_SLUG_COLLISION')continue;
+        const constraint=String((error as {sqlMessage?:string})?.sqlMessage??'');
+        const key=constraint.match(/for key ['"`](?:[^'"`]+\.)?([^'"`]+)['"`]/i)?.[1];
+        if(this.#duplicate(error) && key==='uq_cards_registration_email')throw duplicateCardEmail();
         if (!this.#duplicate(error)) throw error;
+        if(!key || !['slug','cards_slug_unique','uq_cards_slug'].includes(key))throw error;
       }
     }
     throw new AppError(503, 'SERVICE_UNAVAILABLE', 'A unique Starter URL could not be allocated.');
@@ -90,20 +99,10 @@ export class StarterService {
   }
 
   async update(publicId: string, managePlaintext: string, csrfToken: string, data: StarterCardInput): Promise<{ card: StarterCardResponse; manageToken: string; csrfToken: string }> {
-    this.#validateUrls(data);
-    const currentHash = this.#tokens.hash(managePlaintext);
-    if (!this.#csrf.verify(csrfToken, `starter:${currentHash}`)) throw new AppError(403, 'CSRF_INVALID', 'CSRF validation failed.');
-    const replacement = this.#tokens.issue();
-    const updated = await this.#repository.transaction(async (transaction) => {
-      const managed = await transaction.findManaged(publicId, currentHash);
-      if (!managed) return null;
-      const now = new Date();
-      await transaction.updateStarter(managed.card.id, data, now);
-      await transaction.rotateManageToken(managed.card.id, managed.tokenId, replacement.hash, now);
-      return transaction.loadCard(managed.card.id);
-    });
-    if (!updated) throw new AppError(401, 'STARTER_TOKEN_INVALID', 'Starter management access is invalid.');
-    return { card: this.#response(updated), manageToken: replacement.plaintext, csrfToken: this.#csrf.issue(`starter:${replacement.hash}`) };
+    // Management links are signup/claim context, never proof of email ownership.
+    // All edits must use authenticated, verified, owned /cards endpoints.
+    if(!this.#csrf.verify(csrfToken,`starter:${this.#tokens.hash(managePlaintext)}`))throw new AppError(403,'CSRF_INVALID','CSRF validation failed.');
+    throw new AppError(403,'STARTER_CLAIM_REQUIRED','Claim the card with a verified account before editing.');
   }
 
   async signupContext(publicId: string, managePlaintext: string): Promise<{ email: string }> {
@@ -140,7 +139,7 @@ export class StarterService {
       const user=this.#recoveryUser(await transaction.findUser(claims.sub));
       const card=await transaction.findRecoveryCard(publicId);
       if(!card || card.deletedAt || card.planCode!=='starter' || !['draft','published'].includes(card.status)
-        || card.email.trim().toLowerCase()!==user.email.trim().toLowerCase())throw new AppError(404,'STARTER_NOT_ELIGIBLE','Starter card is not eligible for claim.');
+        || !card.email || normalizeCardEmail(card.email)!==normalizeCardEmail(user.email))throw new AppError(404,'STARTER_NOT_ELIGIBLE','Starter card is not eligible for claim.');
       if(card.userId!==null && card.userId!==user.id)throw new AppError(409,'STARTER_ALREADY_OWNED','Starter card is already owned.');
       const result={publicId:card.publicId,displayName:card.displayName,slug:card.slug,createdAt:card.createdAt};
       if(card.userId===user.id)return {card:result,alreadyOwned:true};
@@ -163,6 +162,8 @@ export class StarterService {
       if (!user || user.status !== 'active' || !user.emailVerifiedAt) return { kind: 'auth' as const };
       const managed = await transaction.findManaged(publicId, manageHash);
       if (!managed) return { kind: 'manage' as const };
+      if(!managed.card.registrationEmail)throw identityReview();
+      if(normalizeCardEmail(managed.card.registrationEmail)!==normalizeCardEmail(user.email))throw new AppError(403,'STARTER_EMAIL_MISMATCH','Verified account email does not match the card identity.');
       if (await transaction.userHasCard(user.id)) return { kind: 'conflict' as const };
       const now = new Date();
       await transaction.claimCard(managed.card.id, user.id, now);

@@ -1,6 +1,7 @@
 import type { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { AccountProfile, AccountRepository } from './account-repository.ts';
 import { normalizeRoles, primaryRole } from '../../../shared/security/roles.ts';
+import { reserveCardEmail, reserveCurrentOwnerEmail, identityReview } from '../../../shared/security/card-email-identity.ts';
 
 type AccountRow = RowDataPacket & { id: number; public_id: string; email: string; password_hash: string; active_roles: string | null; permissions: string | null; status: string; email_verified_at: Date | null };
 
@@ -54,6 +55,17 @@ export class MySqlAccountRepository implements AccountRepository {
         }
       }
       const emailVerifiedAt = current.email === email ? current.email_verified_at : null;
+      if(current.email!==email) {
+        const [cards]=await connection.execute<Array<RowDataPacket & {id:number;registration_email:Buffer|null}>>('SELECT id,registration_email FROM cards WHERE user_id=? ORDER BY id FOR UPDATE',[current.id]);
+        // Existing ownership remains authority for account changes. A legacy NULL
+        // registration identity must not disable the owner's normal account flow.
+        // Cutover holds retain old identities; the new email is only an alias.
+        if(cards.length>1)throw identityReview();
+        if(cards[0]) {
+          await reserveCurrentOwnerEmail(connection,current.id,cards[0].id,now);
+          await reserveCardEmail(connection,email,now,cards[0].id);
+        }
+      }
       const [result] = await connection.execute<ResultSetHeader>('UPDATE users SET email = ?, email_verified_at = ?, updated_at = ? WHERE id = ?', [email, emailVerifiedAt, now, current.id]);
       if (result.affectedRows !== 1) throw new Error('Failed to update current user email.');
       if (current.email !== email) {

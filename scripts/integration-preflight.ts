@@ -4,7 +4,7 @@ import type { RowDataPacket } from 'mysql2/promise';
 import { loadEnvironment } from '../src/config/environment.ts';
 import { MigrationRunner } from '../src/shared/database/migration-runner.ts';
 import { createDatabasePool } from '../src/shared/database/pool.ts';
-import { ADMIN_DATA_RESOURCES } from '../src/modules/admin-data/resources/admin-data-resources.ts';
+import { ADMIN_DATA_RESOURCES, INTERNAL_DATABASE_TABLES } from '../src/modules/admin-data/resources/admin-data-resources.ts';
 
 type CollectionItem = Readonly<{ name: string; item?: readonly CollectionItem[] }>;
 type Collection = Readonly<{
@@ -60,7 +60,7 @@ try {
     'SELECT TABLE_NAME AS tableName FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE()',
   );
   const tables = new Set(tableRows.map((row) => row.tableName));
-  const applicationTables = [...tables].filter((table) => table !== 'schema_migrations');
+  const applicationTables = [...tables].filter((table) => !INTERNAL_DATABASE_TABLES.includes(table));
   check('crud_catalog_exactly_matches_application_tables',
     ADMIN_DATA_RESOURCES.every((resource) => tables.has(resource))
       && applicationTables.every((table) => ADMIN_DATA_RESOURCES.includes(table as typeof ADMIN_DATA_RESOURCES[number]))

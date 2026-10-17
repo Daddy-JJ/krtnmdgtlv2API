@@ -2,6 +2,8 @@ import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql
 import type { StarterCardInput } from '../../auth/dto/starter-input.ts';
 import type { ClaimUserRecord, ManagedStarterRecord, StarterCandidate, RecoveryCard, StarterCardRecord, StarterRepository, StarterTransaction } from './starter-repository.ts';
 import { AppError } from '../../../shared/http/errors.ts';
+import { cardTransaction } from '../../../shared/database/card-transaction.ts';
+import { reserveAnonymousEmail, bindCardEmail, normalizeCardEmail, identityReview } from '../../../shared/security/card-email-identity.ts';
 
 type CardRow = RowDataPacket & { id: number; public_id: string; user_id: number | null; slug: string; plan_code: 'starter'; theme_code: string; locale: 'id' | 'en'; status: string; full_name: string; job_title: string; organization: string; office_phone: string; mobile_phone: string; email: string; website_url: string; address_text: string };
 
@@ -12,6 +14,7 @@ function card(row: CardRow): StarterCardRecord {
 class MySqlStarterTransaction implements StarterTransaction {
   readonly #connection: PoolConnection;
   constructor(connection: PoolConnection) { this.#connection = connection; }
+  reserveEmail(email:string,now:Date):Promise<void>{return reserveAnonymousEmail(this.#connection,email,now);}
 
   async slugExists(slug: string): Promise<boolean> {
     const [rows] = await this.#connection.execute<RowDataPacket[]>('SELECT id FROM cards WHERE slug = BINARY ? LIMIT 1', [slug]);
@@ -19,14 +22,16 @@ class MySqlStarterTransaction implements StarterTransaction {
   }
 
   async insertStarter(input: { publicId: string; slug: string; tokenHash: string; data: StarterCardInput; now: Date }): Promise<StarterCardRecord> {
+    const email=normalizeCardEmail(input.data.contact.email);
     const [themes] = await this.#connection.execute<Array<RowDataPacket & { id: number }>>(`SELECT t.id FROM themes t
       JOIN plan_theme_access pta ON pta.theme_id = t.id JOIN plans p ON p.id = pta.plan_id
       WHERE t.code = 'starter-clean' AND t.is_active = 1 AND p.code = 'starter' AND p.is_active = 1 LIMIT 1 FOR UPDATE`);
     const themeId = themes[0]?.id;
     if (!themeId) throw new Error('Starter theme is unavailable.');
     const [result] = await this.#connection.execute<ResultSetHeader>(`INSERT INTO cards
-      (public_id, user_id, slug, slug_kind, plan_code, theme_id, locale, status, created_at, updated_at)
-      VALUES (?, NULL, ?, 'random', 'starter', ?, ?, 'published', ?, ?)`, [input.publicId, input.slug, themeId, input.data.locale, input.now, input.now]);
+      (public_id, user_id, slug, slug_kind, plan_code, theme_id, locale, status, created_at, updated_at, registration_email)
+      VALUES (?, NULL, ?, 'random', 'starter', ?, ?, 'published', ?, ?, ?)`, [input.publicId, input.slug, themeId, input.data.locale, input.now, input.now,email]);
+    await bindCardEmail(this.#connection,email,result.insertId);
     const contact = input.data.contact;
     await this.#connection.execute(`INSERT INTO card_contacts
       (card_id, full_name, job_title, organization, office_phone, mobile_phone, email, website_url, address_text, maps_url, created_at, updated_at)
@@ -64,14 +69,14 @@ class MySqlStarterTransaction implements StarterTransaction {
     const [rows] = await this.#connection.execute<Array<RowDataPacket & StarterCandidate>>(`SELECT c.public_id publicId,cc.full_name displayName,c.slug,c.created_at createdAt
       FROM cards c JOIN card_contacts cc ON cc.card_id=c.id
       WHERE c.user_id IS NULL AND c.plan_code='starter' AND c.deleted_at IS NULL
-      AND c.status IN ('draft','published') AND BINARY LOWER(TRIM(cc.email))=BINARY ?
+      AND c.status IN ('draft','published') AND c.registration_email=?
       ORDER BY c.created_at DESC,c.public_id DESC LIMIT ? OFFSET ?`, [email,limit,offset]);
     return rows.map(row=>({publicId:row.publicId,displayName:row.displayName,slug:row.slug,createdAt:row.createdAt}));
   }
 
   async findRecoveryCard(publicId: string): Promise<RecoveryCard | null> {
     const [rows] = await this.#connection.execute<Array<RowDataPacket & RecoveryCard>>(`SELECT c.id,c.public_id publicId,c.user_id userId,
-      c.plan_code planCode,c.status,c.deleted_at deletedAt,cc.email,cc.full_name displayName,c.slug,c.created_at createdAt
+      c.plan_code planCode,c.status,c.deleted_at deletedAt,CAST(c.registration_email AS CHAR) email,cc.full_name displayName,c.slug,c.created_at createdAt
       FROM cards c JOIN card_contacts cc ON cc.card_id=c.id WHERE c.public_id=? FOR UPDATE`,[publicId]);
     return rows[0] ?? null;
   }
@@ -82,7 +87,7 @@ class MySqlStarterTransaction implements StarterTransaction {
   }
 
   async userHasCard(userId: number): Promise<boolean> {
-    const [rows] = await this.#connection.execute<RowDataPacket[]>('SELECT id FROM cards WHERE user_id = ? AND deleted_at IS NULL LIMIT 1 FOR UPDATE', [userId]);
+    const [rows] = await this.#connection.execute<RowDataPacket[]>('SELECT id FROM cards WHERE user_id = ? LIMIT 1 FOR UPDATE', [userId]);
     return rows.length > 0;
   }
 
@@ -99,11 +104,11 @@ class MySqlStarterTransaction implements StarterTransaction {
   async revokeManageTokens(cardId: number, now: Date): Promise<void> { await this.#connection.execute('UPDATE starter_manage_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE card_id = ?', [now, cardId]); }
 
   async loadCard(cardId: number): Promise<StarterCardRecord> {
-    const [rows] = await this.#connection.execute<CardRow[]>(`SELECT c.id, c.public_id, c.user_id, c.slug, c.plan_code, t.code AS theme_code, c.locale, c.status,
+    const [rows] = await this.#connection.execute<CardRow[]>(`SELECT c.id, c.public_id, c.user_id, c.slug, c.plan_code, t.code AS theme_code, c.locale, c.status,c.registration_email,
       cc.full_name, cc.job_title, cc.organization, cc.office_phone, cc.mobile_phone, cc.email, cc.website_url, cc.address_text
       FROM cards c JOIN themes t ON t.id = c.theme_id JOIN card_contacts cc ON cc.card_id = c.id WHERE c.id = ?`, [cardId]);
     if (!rows[0]) throw new Error('Card could not be loaded.');
-    return card(rows[0]);
+    return {...card(rows[0]),registrationEmail:rows[0].registration_email?.toString()??null};
   }
 }
 
@@ -111,19 +116,17 @@ export class MySqlStarterRepository implements StarterRepository {
   readonly #pool: Pool;
   constructor(pool: Pool) { this.#pool = pool; }
   async findManagedSignupContext(publicId: string, tokenHash: string): Promise<{ email: string } | null> {
-    const [rows] = await this.#pool.execute<Array<RowDataPacket & { email: string }>>(`SELECT cc.email
+    const [rows] = await this.#pool.execute<Array<RowDataPacket & { email: string | null }>>(`SELECT CAST(c.registration_email AS CHAR) email
       FROM starter_manage_tokens smt
       JOIN cards c ON c.id = smt.card_id
       JOIN card_contacts cc ON cc.card_id = c.id
       WHERE c.public_id = ? AND smt.token_hash = ? AND smt.revoked_at IS NULL
       AND c.user_id IS NULL AND c.plan_code = 'starter' AND c.deleted_at IS NULL
       LIMIT 1`, [publicId, tokenHash]);
-    return rows[0] ? { email: rows[0].email } : null;
+    if(rows[0] && !rows[0].email)throw identityReview();
+    return rows[0]?.email ? { email: rows[0].email } : null;
   }
   async transaction<T>(work: (transaction: StarterTransaction) => Promise<T>): Promise<T> {
-    const connection = await this.#pool.getConnection();
-    try { await connection.beginTransaction(); const result = await work(new MySqlStarterTransaction(connection)); await connection.commit(); return result; }
-    catch (error) { await connection.rollback(); throw error; }
-    finally { connection.release(); }
+    return cardTransaction(this.#pool,c=>work(new MySqlStarterTransaction(c)));
   }
 }

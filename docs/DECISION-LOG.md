@@ -1,5 +1,23 @@
 # Backend Decision Log
 
+## ADR-012: One registration email per card, instant anonymous Starter (2026-10-17)
+
+Owner-approved implementation, NOT approval for existing-data migration/cleanup.
+First anonymous Starter remains immediately published, no Login/OTP prerequisite.
+Creation/claim identity is immutable registration email, not mutable contact email.
+Use DB unique constraints plus transactional email reservations across create paths.
+Legacy claim requires matching verified email; anonymous edits are disabled. Recovery
+remains explicit. Account email changes preserve old reservations; deletion/upgrade
+does not open another slot. No automatic duplicate winner, transfer or backfill.
+Migration 014 is additive only. Migration 015 snapshots per-email legacy exclusion
+holds without assigning an owner or selecting a duplicate winner. Unrelated legacy
+NULL identities do not block new emails. Existing owned-card access/account edits
+retain their current ownership authority. Unproven legacy claim/signup context
+requires controlled support review, not mutable contact fallback. No existing-data
+migration, snapshot execution or deployment is approved by source finalization.
+See CARD-EMAIL-IDENTITY.md for deployment gates,
+FE-D-046 duplicate contract, preemption risks and non-destructive rollback.
+
 ## ADR-011: Confirmed Starter recovery by verified email (2026-10-04)
 
 Use active verified session identity to discover unowned eligible Starter cards.

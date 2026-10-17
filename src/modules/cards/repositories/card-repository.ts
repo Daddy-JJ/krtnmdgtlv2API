@@ -2,7 +2,7 @@ import type { NormalizedCardInput } from '../dto/card-input.ts';
 
 export type PlanCode = 'starter' | 'basic' | 'pro';
 export type OwnedCard = Readonly<{ id: number; publicId: string; slug: string; planCode: PlanCode; themeCode: string; locale: 'id' | 'en'; status: string; logoPath?: string | null; contact: NormalizedCardInput['contact'] }>;
-export type EntitledUser = Readonly<{ id: number; planCode: 'basic' | 'pro' }>;
+export type EntitledUser = Readonly<{ id: number; planCode: 'basic' | 'pro'; email?: string }>;
 export type ThemeOption = Readonly<{ code: string; name: string; orientation: string; previewPath: string; displayOrder: number; isAvailable: boolean }>;
 
 export interface CardTransaction {

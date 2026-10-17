@@ -1,0 +1,222 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Starter email identity delta (partial module)",
+    "version": "2026-10-17"
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "paths": {
+    "/starter/cards": {
+      "post": {
+        "summary": "Anonymous first Starter, instantly published; one registration email per card",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contact"
+                ],
+                "properties": {
+                  "locale": {
+                    "enum": [
+                      "id",
+                      "en"
+                    ]
+                  },
+                  "contact": {
+                    "type": "object",
+                    "required": [
+                      "fullName",
+                      "email"
+                    ],
+                    "properties": {
+                      "fullName": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 190
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Existing Starter success contract, status published; management credentials cookie-only"
+          },
+          "409": {
+            "description": "New registration or legacy email-hold conflict; no management cookies or existing resource identity. Unrelated legacy cards do not block fresh email publication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Duplicate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LegacyReview"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "CARD_EMAIL_GUARD_UNAVAILABLE during incomplete migration/cutover, or unavailable/exhausted slug allocation; no cookies and no automatic replay."
+          }
+        }
+      }
+    },
+    "/starter/cards/{publicId}": {
+      "put": {
+        "deprecated": true,
+        "summary": "Disabled pre-claim editing; use /cards after verified claim",
+        "security": [
+          {
+            "CookieSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "publicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "STARTER_CLAIM_REQUIRED or CSRF_INVALID; no mutation"
+          }
+        }
+      }
+    },
+    "/starter/cards/{publicId}/signup-context": {
+      "get": {
+        "summary": "Management-cookie signup context; unknown legacy identity requires support review",
+        "security": [
+          {
+            "StarterManagementCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "publicId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing minimal email context; Cache-Control:no-store"
+          },
+          "401": {
+            "description": "Generic invalid management credential"
+          },
+          "409": {
+            "description": "Valid credential but unknown legacy registration identity; no-store, no cookie rotation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyReview"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "CookieSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token"
+      },
+      "StarterManagementCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "starter_manage"
+      }
+    },
+    "schemas": {
+      "Duplicate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "success",
+          "message",
+          "code",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "message": {
+            "const": "A card already exists for this email."
+          },
+          "code": {
+            "const": "STARTER_EMAIL_ALREADY_EXISTS"
+          },
+          "data": {
+            "type": "null"
+          }
+        }
+      },
+      "LegacyReview": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "code",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "message": {
+            "const": "Card identity requires support review."
+          },
+          "code": {
+            "const": "CARD_EMAIL_IDENTITY_REVIEW_REQUIRED"
+          },
+          "data": {
+            "type": "null"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

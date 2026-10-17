@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import mysql from 'mysql2/promise';
 import { contractDatabase } from './contract-database.js';
-import { ADMIN_DATA_RESOURCES } from '../src/modules/admin-data/resources/admin-data-resources.ts';
+import { ADMIN_DATA_RESOURCES, INTERNAL_DATABASE_TABLES } from '../src/modules/admin-data/resources/admin-data-resources.ts';
 
 const root = resolve(import.meta.dirname, '..');
 const connection = await mysql.createConnection(contractDatabase(root));
@@ -10,7 +10,7 @@ const connection = await mysql.createConnection(contractDatabase(root));
 try {
   const [tableRows] = await connection.query(`SELECT TABLE_NAME AS tableName
     FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME`);
-  const actual = tableRows.map((row) => row.tableName).filter((name) => name !== 'schema_migrations');
+  const actual = tableRows.map((row) => row.tableName).filter((name) => !INTERNAL_DATABASE_TABLES.includes(name));
   const missing = ADMIN_DATA_RESOURCES.filter((name) => !actual.includes(name));
   const extra = actual.filter((name) => !ADMIN_DATA_RESOURCES.includes(name));
   if (missing.length || extra.length) throw new Error(`Schema/CRUD drift. Missing: ${missing.join(', ') || '-'}; extra: ${extra.join(', ') || '-'}.`);
@@ -33,7 +33,7 @@ try {
   }
   const output = [
     '-- GENERATED FILE. Run: npm run schema:generate',
-    `-- Application tables: ${actual.length}. Internal schema_migrations is intentionally omitted.`,
+    `-- Admin-reference tables: ${actual.length}. Internal migration/email identity tables omitted; use migrations for full runtime schema.`,
     'SET NAMES utf8mb4;', 'SET FOREIGN_KEY_CHECKS=0;', '', ...definitions,
     ...(triggers.length ? ['', '-- Triggers', ...triggers] : []),
     '', 'SET FOREIGN_KEY_CHECKS=1;',

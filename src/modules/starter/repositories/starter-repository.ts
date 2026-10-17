@@ -4,6 +4,7 @@ export type StarterCardRecord = Readonly<{
   id: number;
   publicId: string;
   userId: number | null;
+  registrationEmail?: string | null;
   slug: string;
   planCode: 'starter';
   themeCode: string;
@@ -18,6 +19,7 @@ export type StarterCandidate = Readonly<{ publicId: string; displayName: string;
 export type RecoveryCard = StarterCandidate & Readonly<{ id: number; userId: number | null; email: string; planCode: string; status: string; deletedAt: Date | null }>;
 
 export interface StarterTransaction {
+  reserveEmail(email:string,now:Date):Promise<void>;
   slugExists(slug: string): Promise<boolean>;
   insertStarter(input: { publicId: string; slug: string; tokenHash: string; data: StarterCardInput; now: Date }): Promise<StarterCardRecord>;
   findManaged(publicId: string, tokenHash: string): Promise<ManagedStarterRecord | null>;

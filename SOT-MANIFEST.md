@@ -1,5 +1,10 @@
 # Backend SOT Manifest
 
+2026-10-17: one registration email per card; anonymous Starter remains instantly published.
+docs/CARD-EMAIL-IDENTITY.md and ADR-012 own identity/claim and migration 014 gates.
+Migration 015 adds per-email legacy holds, not identity backfill; source finalized
+locally only. docs/CARD-EMAIL-IDENTITY.md owns the hosting cutover and review runbook.
+
 Gateway diagnostics, 2026-10-09: docs/DUITKU-DIAGNOSTICS.md describes safe
 transport logging; no financial behavior change or deployment authorization.
 

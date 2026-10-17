@@ -1,5 +1,23 @@
 # Frontend Integration
 
+## One registration email per card (2026-10-17)
+
+See CARD-EMAIL-IDENTITY.md / STARTER-EMAIL-IDENTITY.openapi.json (ADR-012, FE-D-046).
+Anonymous first Starter remains immediately published, no Login/OTP gate.
+Duplicate create: 409 STARTER_EMAIL_ALREADY_EXISTS, data:null, no management
+cookies or existing IDs/URLs. Do not conflate registration EMAIL_ALREADY_EXISTS.
+Keep guard/no POST replay and explicit recovery. Management token alone can no
+longer edit; claim with matching verified email, then use PUT /cards/{publicId}.
+Wrong legacy-claim email: 403 STARTER_EMAIL_MISMATCH. Pending legacy identity:
+409 CARD_EMAIL_IDENTITY_REVIEW_REQUIRED -> support, never retry create/auto-claim.
+The same review code can occur for a valid legacy management signup context whose
+registration identity is unknown; do not treat it as proof of an invalid cookie.
+Legacy email holds also return the exact duplicate 409 on create. Unrelated fresh
+emails still publish instantly; existing owned legacy cards remain editable by
+their active verified owners. Candidate discovery includes proven identities only;
+an empty list does not prove that no legacy card exists. Preserve a support CTA.
+Migration/backfill and deployment require separate approvals; local is not live.
+
 ## Starter verified-email recovery (2026-10-04)
 
 See [Starter recovery contract](STARTER-RECOVERY.md) and

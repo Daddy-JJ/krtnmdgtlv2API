@@ -48,6 +48,8 @@ import { defaults } from '../../src/modules/email/templates/template-content.ts'
 import { ADMIN_DATA_RESOURCES } from '../../src/modules/admin-data/resources/admin-data-resources.ts';
 import { MySqlSessionAuthority } from '../../src/shared/security/session-authority.ts';
 import { MySqlAccountRepository } from '../../src/modules/account/repositories/mysql-account-repository.ts';
+import { verifyCardEmailIdentity } from './card-email-identity.ts';
+import { verifyLegacyCardEmailCompatibility } from './legacy-card-email.ts';
 
 const enabled = process.env.RUN_DB_TESTS === 'true' || process.env.RUN_DB_TESTS === '1';
 
@@ -76,6 +78,9 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       'SELECT @@session.time_zone AS sessionTimezone',
     );
     assert.equal(timezoneRows[0]?.sessionTimezone, '+00:00');
+    // Dedicated _test target only. Production down intentionally retains identity data.
+    await pool.query('DROP TABLE IF EXISTS card_email_identities');
+    await pool.query('DROP TABLE IF EXISTS card_email_legacy_holds');
     while ((await migrations.rollbackLastBatch()).length > 0) {
       // Reset the dedicated integration database so the first migration assertion is repeatable.
     }
@@ -95,6 +100,8 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '011_whatsapp_pro_entitlement.sql',
       '012_whatsapp_all_tiers.sql',
       '013_payment_provider_transition.sql',
+      '014_card_email_identity.sql',
+      '015_legacy_card_email_holds.sql',
     ]);
     assert.deepEqual(await migrations.migrate(), []);
     await verifyResumeRoleMerge(pool);
@@ -227,14 +234,15 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       accessTokens: new Rs256AccessTokenService({ privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(), issuer: 'kartunamadigital.id', audience: 'kartunamadigital-web', ttlSeconds: 900 }),
       appUrl: 'https://kartunamadigital.id',
     });
-    const starterInput = { locale: 'id' as const, contact: { fullName: 'Starter Integration', jobTitle: 'Tester', organization: 'KND', officePhone: '', mobilePhone: '081234567890', email: 'starter@example.com', websiteUrl: '', addressText: 'Jakarta' } };
+    const starterInput = { locale: 'id' as const, contact: { fullName: 'Starter Integration', jobTitle: 'Tester', organization: 'KND', officePhone: '', mobilePhone: '081234567890', email, websiteUrl: '', addressText: 'Jakarta' } };
     const createdStarter = await starter.create(starterInput, 'starter-client');
     assert.match(createdStarter.card.slug, /^[a-zA-Z]{7}$/);
     assert.equal(createdStarter.card.themeCode, 'starter-clean');
     assert.equal(createdStarter.card.contact.websiteUrl, '');
     assert.deepEqual(await starter.signupContext(createdStarter.card.publicId, createdStarter.manageToken), { email: starterInput.contact.email });
     await assert.rejects(() => starter.signupContext(createdStarter.card.publicId, 'invalid-manage-token'), { code: 'STARTER_TOKEN_INVALID' });
-    const updatedStarter = await starter.update(createdStarter.card.publicId, createdStarter.manageToken, createdStarter.csrfToken, { ...starterInput, contact: { ...starterInput.contact, fullName: 'Starter Updated' } });
+    await assert.rejects(starter.update(createdStarter.card.publicId,createdStarter.manageToken,createdStarter.csrfToken,starterInput),{code:'STARTER_CLAIM_REQUIRED'});
+    const updatedStarter=createdStarter;
     await assert.rejects(() => starter.update(createdStarter.card.publicId, createdStarter.manageToken, createdStarter.csrfToken, starterInput));
     const claimed = await starter.claim(updatedStarter.card.publicId, updatedStarter.manageToken, updatedStarter.csrfToken, claimSession.accessToken);
     const savedClaimed = await new CardService({ repository: new MySqlCardRepository(pool), appUrl: 'https://kartunamadigital.id', requireHttpsUrls: true }).update(claimSession.user.publicId, claimed.card.publicId, { ...starterInput, contact: { ...starterInput.contact, fullName: 'Mr Arwan' } });
@@ -243,7 +251,8 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     const [ownerRows] = await pool.execute<Array<RowDataPacket & { user_id: number | null }>>('SELECT user_id FROM cards WHERE public_id = ?', [claimed.card.publicId]);
     assert.ok(ownerRows[0]?.user_id);
     await assert.rejects(() => starter.update(updatedStarter.card.publicId, updatedStarter.manageToken, updatedStarter.csrfToken, starterInput));
-    const secondStarter = await starter.create(starterInput, 'starter-client-2');
+    await assert.rejects(starter.create(starterInput,'duplicate-owned'),{code:'STARTER_EMAIL_ALREADY_EXISTS'});
+    const secondStarter = await starter.create({...starterInput,contact:{...starterInput.contact,email:'other-starter@example.test'}}, 'starter-client-2');
     await assert.rejects(() => starter.claim(secondStarter.card.publicId, secondStarter.manageToken, secondStarter.csrfToken, claimSession.accessToken));
     const [manageRows] = await pool.execute<Array<RowDataPacket & { token_hash: string; revoked_at: Date | null }>>('SELECT token_hash, revoked_at FROM starter_manage_tokens WHERE card_id = (SELECT id FROM cards WHERE public_id = ?) ORDER BY id DESC', [claimed.card.publicId]);
     assert.notEqual(manageRows[0]?.token_hash, updatedStarter.manageToken);
@@ -252,19 +261,20 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     // Recovery is opt-in: registration, OTP and login must not assign anonymous cards.
     const recoveryEmail='starter-recovery@example.test';
     const recoveryInput={...starterInput,contact:{...starterInput.contact,email:recoveryEmail}};
-    const recoveryCards=await Promise.all([starter.create(recoveryInput,'recovery-create-1'),starter.create(recoveryInput,'recovery-create-2')]);
+    const firstRecovery=await starter.create(recoveryInput,'recovery-create-1');
+    await assert.rejects(starter.create(recoveryInput,'recovery-create-2'),{code:'STARTER_EMAIL_ALREADY_EXISTS'});
+    const recoveryCards=[firstRecovery];
     await auth.register(recoveryEmail,password,'recovery-register');
     await auth.verifyEmailOtp(recoveryEmail,delivered.otp??'');
     const recoverySession=await auth.login(recoveryEmail,password,'recovery-login');
     const recoveryPage=await starter.listCandidates(recoverySession.accessToken,1);
-    assert.equal(recoveryPage.items.length,1);assert.equal(recoveryPage.hasMore,true);
+    assert.equal(recoveryPage.items.length,1);assert.equal(recoveryPage.hasMore,false);
     assert.deepEqual(Object.keys(recoveryPage.items[0]!).sort(),['createdAt','displayName','publicId','slug']);
-    const [beforeRecovery]=await pool.execute<Array<RowDataPacket&{n:number}>>('SELECT COUNT(*) n FROM cards WHERE public_id IN (?,?) AND user_id IS NULL',recoveryCards.map(r=>r.card.publicId));
-    assert.equal(Number(beforeRecovery[0]!.n),2);
+    const [beforeRecovery]=await pool.execute<Array<RowDataPacket&{n:number}>>('SELECT COUNT(*) n FROM cards WHERE public_id IN (?) AND user_id IS NULL',recoveryCards.map(r=>r.card.publicId));
+    assert.equal(Number(beforeRecovery[0]!.n),1);
     await assert.rejects(starter.claimCandidate(recoveryCards[0]!.card.publicId,claimSession.accessToken,claimSession.csrfToken),{code:'STARTER_NOT_ELIGIBLE'});
-    const raced=await Promise.allSettled(recoveryCards.map(r=>starter.claimCandidate(r.card.publicId,recoverySession.accessToken,recoverySession.csrfToken)));
-    assert.equal(raced.filter(r=>r.status==='fulfilled').length,1);
-    assert.ok(raced.some(r=>r.status==='rejected'&&r.reason.code==='PLAN_LIMIT_REACHED'));
+    const raced=await Promise.allSettled(Array.from({length:3},()=>starter.claimCandidate(firstRecovery.card.publicId,recoverySession.accessToken,recoverySession.csrfToken)));
+    assert.equal(raced.filter(r=>r.status==='fulfilled').length,3);
     const winner=raced.find(r=>r.status==='fulfilled');assert.ok(winner&&winner.status==='fulfilled');
     const recoveryId=winner.value.card.publicId;
     const repeated=await Promise.all(Array.from({length:3},()=>starter.claimCandidate(recoveryId,recoverySession.accessToken,recoverySession.csrfToken)));
@@ -300,8 +310,10 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     assert.equal((await cards.get(paidUser.public_id, paidCard.publicId)).contact.mapsUrl, mapsUrl);
     await cards.delete(paidUser.public_id, paidCard.publicId);
     await assert.rejects(() => cards.get(paidUser.public_id, paidCard.publicId), { code: 'CARD_NOT_FOUND' });
-    const replacement = await cards.create(paidUser.public_id, cardInput);
-    assert.notEqual(replacement.publicId, paidCard.publicId);
+    await assert.rejects(cards.create(paidUser.public_id, cardInput),{code:'PLAN_LIMIT_REACHED'});
+    // Explicit fixture restore, not a new slot or production cleanup.
+    await pool.execute("UPDATE cards SET deleted_at=NULL,status='draft' WHERE public_id=?",[paidCard.publicId]);
+    const replacement = paidCard;
     const customization = new CardCustomizationService({ repository: new MySqlCardRepository(pool), slugs: new CustomSlugService(), capabilities: new PlanCapabilityService(new MySqlPlanCapabilityReader(pool)), appUrl: 'https://kartunamadigital.id' });
     const themes = await customization.cardThemes(paidUser.public_id, replacement.publicId);
     assert.equal(themes.filter((theme) => theme.isAvailable).length, 3);
@@ -310,7 +322,6 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
     const renamed = await customization.updateSlug(paidUser.public_id, replacement.publicId, 'Arwan-Sales');
     assert.equal(renamed.slug, 'arwan-sales');
     assert.equal((await customization.availability('arwan-sales')).available, false);
-    await assert.rejects(() => customization.updateSlug(paidUser.public_id, replacement.publicId, paidCard.slug), { code: 'SLUG_UNAVAILABLE' });
     await assert.rejects(() => customization.updateSlug(paidUser.public_id, replacement.publicId, 'admin'), { code: 'SLUG_INVALID' });
     await assert.rejects(() => cards.publicCard('arwan-sales'), { code: 'CARD_NOT_FOUND' });
     await assert.rejects(() => cards.publish(claimSession.user.publicId, replacement.publicId), { code: 'CARD_NOT_FOUND' });
@@ -426,17 +437,20 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       { code: 'FEEDBACK_STATUS_UNCHANGED' },
     );
 
-    const recoveryStarter = await starter.create({ ...starterInput, contact: { ...starterInput.contact, email: paidEmail } }, 'admin-card-recovery-client');
+    const adminRecoveryEmail='admin-recovery@example.test';
+    await auth.register(adminRecoveryEmail,password,'admin-recovery');await auth.verifyEmailOtp(adminRecoveryEmail,delivered.otp??'');
+    const adminRecoverySession=await auth.login(adminRecoveryEmail,password,'admin-recovery');
+    const recoveryStarter = await starter.create({ ...starterInput, contact: { ...starterInput.contact, email: adminRecoveryEmail } }, 'admin-card-recovery-client');
     assert.equal((await superAdmin.card(recoveryStarter.card.publicId))?.owner, null);
     const connected = await superAdmin.interveneCard(claimSession.user.publicId, recoveryStarter.card.publicId, {
       action: 'CONNECT_MATCHING_VERIFIED_ACCOUNT', reason: 'Integration ownership recovery verification',
     }, 'integration-card-connect');
-    assert.equal(connected.newOwnerPublicId, paidUser.public_id);
+    assert.equal(connected.newOwnerPublicId, adminRecoverySession.user.publicId);
     await assert.rejects(() => starter.signupContext(recoveryStarter.card.publicId, recoveryStarter.manageToken), { code: 'STARTER_TOKEN_INVALID' });
     const released = await superAdmin.interveneCard(claimSession.user.publicId, recoveryStarter.card.publicId, {
       action: 'RELEASE_CARD', reason: 'Integration ownership release verification',
     }, 'integration-card-release');
-    assert.equal(released.previousOwnerPublicId, paidUser.public_id);
+    assert.equal(released.previousOwnerPublicId, adminRecoverySession.user.publicId);
     assert.equal(released.newOwnerPublicId, null);
     assert.ok((await superAdmin.card(recoveryStarter.card.publicId))?.audit instanceof Array);
     assert.equal((await superAdmin.reports(30)).days, 30);
@@ -515,7 +529,10 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       assert.ok(Number(rows[0]?.records ?? 0) > 0, `${resource} must contain dummy or canonical seed data`);
     }
 
+    await pool.query('DROP TABLE IF EXISTS card_email_identities');
     assert.deepEqual(await migrations.rollbackLastBatch(), [
+      '015_legacy_card_email_holds.sql',
+      '014_card_email_identity.sql',
       '013_payment_provider_transition.sql',
       '012_whatsapp_all_tiers.sql',
       '011_whatsapp_pro_entitlement.sql',
@@ -548,10 +565,14 @@ test('migrations and seeds are idempotent on MariaDB/MySQL', { skip: !enabled },
       '011_whatsapp_pro_entitlement.sql',
       '012_whatsapp_all_tiers.sql',
       '013_payment_provider_transition.sql',
+      '014_card_email_identity.sql',
+      '015_legacy_card_email_holds.sql',
     ]);
     assert.equal((await seeds.run()).length, 2);
     // All transitions, including provider-neutral fields, are present after reapply.
     assert.equal((await migrations.status())['013_payment_provider_transition.sql'],true);
+    await t.test('atomic card email identity, ownership and recovery', () => verifyCardEmailIdentity(pool));
+    await t.test('hosting-shaped legacy duplicates preserve live behavior and isolate email holds', () => verifyLegacyCardEmailCompatibility(pool));
     await t.test('Duitku durable checkout, callbacks, ownership and exactly-once periods', () => verifyDuitkuPayments(pool));
     await t.test('mail queue concurrency, admin retry, worker lock and reset token lifecycle', () => verifyMailQueue(pool));
   } finally {

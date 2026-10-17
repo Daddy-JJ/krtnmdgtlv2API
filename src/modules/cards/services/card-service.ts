@@ -34,6 +34,7 @@ export class CardService {
     const card = await this.#repository.transaction(async (transaction) => {
       const user = await transaction.findEntitledUserForUpdate(userPublicId);
       if (!user) throw new AppError(403, 'PAID_ENTITLEMENT_REQUIRED', 'An active Basic or Pro subscription is required.');
+      // Registration identity comes from verified session user, not editable contact.
       if (await transaction.userHasActiveCard(user.id)) throw new AppError(409, 'PLAN_LIMIT_REACHED', 'The account already has an active card.');
       if(normalized.contact.mapsUrl)await this.#assertMaps(user.planCode);const theme = await transaction.findDefaultTheme(user.planCode);
       if (!theme) throw new AppError(503, 'THEME_UNAVAILABLE', 'No active theme is available for the current plan.');
